@@ -58,6 +58,19 @@ HumanLens AI is engineered to operate 100% in the cloud at zero hosting expense:
 | **Google Gemini API** | Free Tier (Google AI Studio) | Live Contextual Rewrites & Reflection Coach |
 | **Hugging Face Spaces** | Free 16GB CPU Space | Optional standalone Python ML microservice |
 
+## ☁️ Deploy 100% Online in 60 Seconds ($0 Cost)
+
+Click below to deploy your Next.js Web App and REST API to **Vercel** with zero configuration:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Farpankaushal1234567777-ctrl%2Fhumanlensai&root-directory=web&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
+1. Sign in with GitHub on Vercel.
+2. Select Root Directory: **`web`**.
+3. Add Environment Variables:
+   - `NEXT_PUBLIC_SUPABASE_URL` = `https://oybxycvcaqtdjckrkxfa.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = `your-anon-key`
+4. Click **Deploy** — you get a permanent, live `https://*.vercel.app` domain running 24/7!
+
 ---
 
 ## 🚀 Quick Start (Local Development)
