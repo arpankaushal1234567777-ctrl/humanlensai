@@ -1,0 +1,4 @@
+fusion_model,accuracy,precision,recall,f1,roc_auc,provenance,note
+logistic_regression,0.933,0.1299,1.0,0.2299,0.9945,SYNTHETIC PROOF-OF-CONCEPT,Calibrated cross-modal benchmark; not real-world multimodal ground truth
+random_forest,0.991,1.0,0.1,0.1818,0.9811,SYNTHETIC PROOF-OF-CONCEPT,Calibrated cross-modal benchmark; not real-world multimodal ground truth
+small_mlp,0.993,0.8,0.4,0.5333,0.9916,SYNTHETIC PROOF-OF-CONCEPT,Calibrated cross-modal benchmark; not real-world multimodal ground truth

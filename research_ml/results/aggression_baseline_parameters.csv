@@ -1,0 +1,7 @@
+parameter,value
+threat_weight,0.45
+insult_weight,0.35
+toxicity_weight,0.2
+low_threshold,0.25
+moderate_threshold,0.5
+high_threshold,0.75

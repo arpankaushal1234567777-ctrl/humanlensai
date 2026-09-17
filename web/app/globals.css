@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #000000;
+  --bg-surface: #0e0e10;
+  --bg-elevated: #161618;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(255, 255, 255, 0.18);
+  --text-primary: #ffffff;
+  --text-secondary: #86868b;
+  --text-tertiary: #52525b;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Inter, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
+}
+
+/* Apple-grade frosted glass */
+.apple-panel {
+  background-color: rgba(18, 18, 20, 0.72);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  border: 1px solid var(--border-subtle);
+}
+
+.apple-panel-elevated {
+  background-color: rgba(24, 24, 28, 0.85);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid var(--border-active);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.7);
+}
+
+.apple-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-input:focus {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Smooth minimal scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Breathing animation */
+@keyframes appleBreatheRing {
+  0% { transform: scale(0.85); opacity: 0.3; }
+  50% { transform: scale(1.15); opacity: 0.9; }
+  100% { transform: scale(0.85); opacity: 0.3; }
+}
+
+.animate-breathe-ring {
+  animation: appleBreatheRing 8s ease-in-out infinite;
+}

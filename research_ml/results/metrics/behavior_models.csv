@@ -1,0 +1,2 @@
+model_component,inputs,method,status,provenance,synthetic_fallback_prevented
+BehaviorLensStrainSynthesizer,"sleep, stress, academic_pressure, screen_time, social_interaction",Longitudinal weighted vulnerability modifier,deterministic_operational,HumanLens Implementation,True

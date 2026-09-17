@@ -1,0 +1,2 @@
+sample_rate,duration_seconds,mean_rms_energy,rms_energy_std,mean_pitch_hz,pitch_std_hz,voiced_ratio,pause_ratio,pause_count,speech_activity_ratio,voice_intensity_proxy
+16000,5.0,0.1616044044494629,0.08273792266845703,180.2765383931322,0.7625612600558755,0.8152866242038217,0.18471337579617833,3,0.8192,0.0

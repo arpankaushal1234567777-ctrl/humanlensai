@@ -1,0 +1,16 @@
+{
+    "recommended_research_threshold": 0.6,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.0,
+    "specificity": 1.0,
+    "sensitivity": 1.0,
+    "true_negatives": 5,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "true_positives": 5,
+    "dataset_type": "demonstration_threshold_data",
+    "validation_status": "research_candidate_only"
+}

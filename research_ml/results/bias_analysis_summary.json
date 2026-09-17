@@ -1,0 +1,45 @@
+{
+    "analysis_name": "HumanLens AI — Language Bias Analysis",
+    "evaluation_dataset": "toxicity_baseline_predictions.csv",
+    "evaluation_scope": {
+        "total_examples": 4500,
+        "language_groups": 15,
+        "examples_per_group": 300
+    },
+    "evaluation_groups": [
+        "amharic",
+        "arabic",
+        "chinese",
+        "english",
+        "french",
+        "german",
+        "hebrew",
+        "hindi",
+        "hinglish",
+        "italian",
+        "japanese",
+        "russian",
+        "spanish",
+        "tatar",
+        "ukrainian"
+    ],
+    "metrics_evaluated": [
+        "precision",
+        "recall",
+        "f1_score",
+        "false_positive_rate",
+        "false_negative_rate"
+    ],
+    "highest_fpr_group": "amharic",
+    "highest_fpr": 0.6319444444444444,
+    "highest_fnr_group": "hebrew",
+    "highest_fnr": 0.30434782608695654,
+    "fpr_disparity": 0.6319444444444444,
+    "fnr_disparity": 0.30434782608695654,
+    "positive_rate_fpr_correlation": 0.1601727276706852,
+    "positive_rate_fnr_correlation": -0.029834981610609455,
+    "group_definition": "language",
+    "demographic_inference": false,
+    "interpretation": "Observed language-level performance differences require further investigation and should not automatically be interpreted as demographic or algorithmic bias.",
+    "validation_status": "descriptive_research_analysis"
+}

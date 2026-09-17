@@ -1,0 +1,13 @@
+{
+  "library": "scikit-learn",
+  "scikit_learn_version": "3.14.3",
+  "trained_at": "2026-09-09 19:28:52",
+  "train_samples": 70000,
+  "features_count": 25000,
+  "models": {
+    "toxicity_model.pkl": "LogisticRegression(class_weight='balanced', C=1.0)",
+    "threat_model.pkl": "LogisticRegression(class_weight='balanced', C=1.0)",
+    "insult_model.pkl": "LogisticRegression(class_weight='balanced', C=1.0)",
+    "vectorizer.pkl": "TfidfVectorizer(max_features=25000, ngram_range=(1,2))"
+  }
+}

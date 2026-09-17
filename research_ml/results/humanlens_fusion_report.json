@@ -1,0 +1,39 @@
+{
+    "system": "HumanLens AI",
+    "module": "Multimodal Fusion Engine",
+    "version": "research-baseline-1.0",
+    "timestamp": "2026-09-15T17:06:11.817135",
+    "modality_scores": {
+        "text": 0.9225,
+        "voice": 0.59,
+        "face": 0.6
+    },
+    "fusion_weights": {
+        "text": 0.5,
+        "voice": 0.3,
+        "face": 0.2
+    },
+    "multimodal_fusion": {
+        "score": 0.7583,
+        "escalation_level": "HIGH"
+    },
+    "uncertainty": {
+        "confidence": 0.8455,
+        "uncertainty": 0.1545,
+        "method": "modality-score-agreement baseline"
+    },
+    "behavioral_context": {
+        "stress_7d": 0.84,
+        "sleep_stability_7d": 0.38,
+        "academic_pressure_7d": 0.72,
+        "irritability_7d": 0.7
+    },
+    "behavioral_context_score": 0.72,
+    "context_enhanced_score": 0.7506,
+    "limitations": [
+        "Fusion weights are research baseline values.",
+        "Escalation thresholds are working thresholds, not clinical thresholds.",
+        "Confidence is an agreement-based baseline and is not calibrated probability.",
+        "Behavioral context does not establish causation or diagnosis."
+    ]
+}

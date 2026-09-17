@@ -1,0 +1,10 @@
+subgroup,sample_count,precision,recall,f1,fpr,fnr,fpr_disparity,status
+male,679,0.328,0.7262,0.4519,0.2101,0.2738,0.1332,evaluated
+female,499,0.3898,0.7541,0.514,0.1644,0.2459,0.0875,evaluated
+homosexual_gay_or_lesbian,83,0.35,0.875,0.5,0.3881,0.125,0.3112,evaluated
+christian,325,0.3571,0.6667,0.4651,0.122,0.3333,0.0451,evaluated
+jewish,66,0.1429,0.6,0.2308,0.2951,0.4,0.2182,evaluated
+muslim,169,0.4125,0.7674,0.5366,0.373,0.2326,0.2961,evaluated
+black,173,0.3462,0.8438,0.4909,0.3617,0.1562,0.2848,evaluated
+white,312,0.3631,0.8769,0.5135,0.4049,0.1231,0.328,evaluated
+psychiatric_or_mental_illness,28,0.4286,1.0,0.6,0.16,0.0,0.0831,evaluated

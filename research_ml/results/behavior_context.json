@@ -1,0 +1,30 @@
+{
+    "sleep": {
+        "current_hours": 6.21,
+        "trend": "Decreasing"
+    },
+    "stress": {
+        "current_level": 7.45,
+        "trend": "Increasing"
+    },
+    "academic_pressure": {
+        "current_level": 6.53,
+        "trend": "Decreasing"
+    },
+    "social_interaction": {
+        "current_hours": 3.4,
+        "trend": "Increasing"
+    },
+    "screen_time": {
+        "current_hours": 6.53,
+        "trend": "Increasing"
+    },
+    "mood": {
+        "current_score": 10.0,
+        "trend": "Increasing"
+    },
+    "physical_activity": {
+        "current_minutes": 117.05,
+        "trend": "Increasing"
+    }
+}

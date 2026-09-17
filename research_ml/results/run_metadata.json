@@ -1,0 +1,31 @@
+{
+  "project": "HumanLens AI",
+  "timestamp": "2026-09-09 13:58:58 UTC",
+  "environment": {
+    "python_version": "3.14.3",
+    "os": "Windows 11",
+    "architecture": "AMD64",
+    "scikit_learn_version": "1.8.0",
+    "numpy_version": "2.4.6",
+    "pandas_version": "3.0.3"
+  },
+  "datasets": {
+    "primary_text": "data/processed/civil_comments_train_dev_100k.csv",
+    "multilingual_benchmark": "data/processed/multilingual_toxicity_processed.csv",
+    "total_comments": 100000,
+    "train_samples": 70000,
+    "val_samples": 15000,
+    "test_samples": 15000
+  },
+  "random_seed": 42,
+  "metrics_summary": {
+    "toxicity_baseline_f1": 0.542,
+    "toxicity_baseline_roc_auc": 0.9066,
+    "threat_baseline_f1": 0.2445,
+    "insult_baseline_f1": 0.5778,
+    "expected_calibration_error": 0.164,
+    "brier_score": 0.0813
+  },
+  "fusion_provenance": "SYNTHETIC PROOF-OF-CONCEPT",
+  "status": "COMPLETED_AND_VERIFIED"
+}

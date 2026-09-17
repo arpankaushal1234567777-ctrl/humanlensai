@@ -1,0 +1,20 @@
+metric,value
+total_examples,10
+triggered_interventions,7
+rewrite_count,7
+proceed_count,0
+dismiss_count,0
+rewrite_rate,1.0
+acceptance_rate,1.0
+mean_original_toxicity,0.5141142857142857
+mean_revised_toxicity,0.09934285714285715
+mean_toxicity_reduction,0.41477142857142857
+toxicity_reduction_rate,1.0
+mean_original_escalation,0.5141142857142857
+mean_revised_escalation,0.09934285714285715
+mean_escalation_reduction,0.41477142857142857
+escalation_reduction_rate,0.5714285714285714
+mean_intervention_latency_ms,51.142857142857146
+median_intervention_latency_ms,51.0
+evaluation_status,controlled demonstration
+real_user_study,False
