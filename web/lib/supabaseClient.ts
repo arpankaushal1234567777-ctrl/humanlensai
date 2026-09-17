@@ -119,7 +119,7 @@ export async function saveCheckinToSupabase(data: {
   };
 
   try {
-    const res = await fetch(`${url}/rest/v1/behavior_logs`, {
+    const res = await fetch(`${url}/rest/v1/behavior_logs?on_conflict=user_id,date`, {
       method: 'POST',
       headers: {
         'apikey': supabaseAnonKey,
