@@ -103,7 +103,7 @@ create table if not exists public.consents (
 -- ------------------------------------------------------------------------------
 create table if not exists public.knowledge_chunks (
   id uuid primary key default uuid_generate_v4(),
-  source_id text not null,
+  source_id text unique not null,
   title text not null,
   framework text not null,
   content text not null,
@@ -190,4 +190,4 @@ values
   'Students sleeping less than 6 hours display a 3.2x increase in amygdala reactivity to minor frustrating stimuli. Recognizing internal biological exhaustion helps prevent interpersonal hostility.',
   'Acknowledge internal fatigue before sending high-stakes messages.'
 )
-on conflict do nothing;
+on conflict (source_id) do nothing;
