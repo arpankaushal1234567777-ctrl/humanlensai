@@ -10,14 +10,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: 'error', message: 'Text is required.' }, { status: 400 });
     }
 
-    // Check if Python ML microservice is reachable (custom hfUrl, env var, or local port 7860)
-    const pythonUrl = hfUrl || process.env.NEXT_PUBLIC_HF_SPACE_URL || process.env.PYTHON_ML_URL || 'http://127.0.0.1:7860';
+    // Check if Python ML microservice is reachable (custom hfUrl, env var, or live Render cloud URL)
+    const pythonUrl = hfUrl || process.env.RESEARCH_ML_API_URL || process.env.NEXT_PUBLIC_HF_SPACE_URL || process.env.PYTHON_ML_URL || 'https://humanlens-ml.onrender.com';
     let pythonResult: any = null;
 
     if (pythonUrl) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1200);
+        const timeout = setTimeout(() => controller.abort(), 4000);
         const res = await fetch(`${pythonUrl.replace(/\/$/, '')}/analyze/text`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
