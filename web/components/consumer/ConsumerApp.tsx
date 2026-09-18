@@ -3,49 +3,42 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
-  Send, Check, RefreshCw, X, ArrowUpRight, Plus, Moon, Brain, 
-  MessageSquare, Activity, Sparkles, Settings, User as UserIcon, 
-  LogOut, ShieldCheck, Download, AlertTriangle, ChevronRight,
-  ExternalLink, Globe, Zap
+  Send, Check, RefreshCw, X, ArrowUpRight, Plus, 
+  MessageSquare, Activity, Sparkles, Settings, 
+  LogOut, ShieldCheck, Download, ExternalLink, Globe, ArrowDown
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { MultimodalAnalysisResponse, RewriteOption, BehaviorSummary, ChatMessage } from '../../types';
+import { MultimodalAnalysisResponse, RewriteOption, BehaviorSummary } from '../../types';
 import { CheckinModal } from '../CheckinModal';
 import { SettingsModal } from '../SettingsModal';
 import { AuthModal } from '../auth/AuthModal';
 import { getCurrentUser, signOutUser, getSupabaseAuthClient } from '../../lib/supabaseAuth';
 
-interface ConsumerAppProps {
-  apiKey?: string;
-  onSaveApiKey?: (key: string) => void;
-  onSwitchToDev?: () => void;
-}
-
 const CONFLICT_PRESETS = [
   {
     id: 'client',
-    tag: '⚡ Angry Client',
+    tag: 'Angry Client',
     text: 'You made a massive mistake on our deployment and ruined our entire quarterly release.'
   },
   {
     id: 'coworker',
-    tag: '🛡️ Coworker Blame',
+    tag: 'Coworker Blame',
     text: 'Why do you always ignore my messages and act so careless with our project deadlines?'
   },
   {
     id: 'boundary',
-    tag: '⏱️ Boundary Pushback',
+    tag: 'Boundary Setting',
     text: 'I am sick and tired of you dumping last-minute work on me every Friday evening without warning.'
   },
   {
     id: 'feedback',
-    tag: '💬 Harsh Critique',
+    tag: 'Harsh Critique',
     text: 'Your contribution to this presentation was completely incompetent and embarrassed our team.'
   }
 ];
 
-export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }) => {
-  const [activeTab, setActiveTab] = useState<'write' | 'trends' | 'coach'>('write');
+export const ConsumerApp: React.FC = () => {
+  const [activeSection, setActiveSection] = useState<'overview' | 'trends'>('overview');
   const [draft, setDraft] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<MultimodalAnalysisResponse | null>(null);
@@ -68,22 +61,10 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
   // Behavior summary state
   const [behaviorData, setBehaviorData] = useState<BehaviorSummary | null>(null);
 
-  // Coach chat state
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: 'I am your HumanLens Reflection Coach. If you are experiencing workplace friction or drafting a sensitive email, paste it here and I will help you communicate with clarity and boundary.',
-      timestamp: 'Now'
-    }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const chatBottomRef = useRef<HTMLDivElement | null>(null);
-
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const sandboxRef = useRef<HTMLDivElement | null>(null);
 
-  // Initial user fetch & auth listener
+  // User session tracking
   useEffect(() => {
     getCurrentUser().then((u) => setCurrentUser(u)).catch(() => {});
 
@@ -118,7 +99,6 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text,
-          geminiApiKey: apiKey,
           behaviorContext: {
             stressScore: 0.75,
             sleepDeficitScore: 0.80,
@@ -136,7 +116,7 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
     }
   };
 
-  // Live silent background tone check
+  // Live background debounced check
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!draft.trim()) {
@@ -146,7 +126,7 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
 
     debounceRef.current = setTimeout(() => {
       performAnalysis(draft);
-    }, 600);
+    }, 700);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -164,7 +144,6 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
     return () => clearInterval(interval);
   }, [timerRunning, timerSeconds]);
 
-  // Handle Preset Select
   const handleSelectPreset = async (presetText: string) => {
     setDraft(presetText);
     setSelectedRewrite(null);
@@ -177,7 +156,6 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
     }
   };
 
-  // Intercepting Send
   const handleSend = async () => {
     if (!draft.trim() || isAnalyzing) return;
 
@@ -214,41 +192,11 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
     setUserDropdownOpen(false);
   };
 
-  // Chat send
-  const handleSendChat = async () => {
-    if (!chatInput.trim() || chatLoading) return;
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: chatInput.trim(),
-      timestamp: 'Now'
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    const toSend = chatInput.trim();
-    setChatInput('');
-    setChatLoading(true);
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: toSend, geminiApiKey: apiKey })
-      });
-      const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.reply || 'Let us step back and look at the underlying needs behind this message.',
-          timestamp: 'Now',
-          citations: data.citations
-        }
-      ]);
-    } catch {
-    } finally {
-      setChatLoading(false);
-    }
+  const scrollToSandbox = () => {
+    setActiveSection('overview');
+    setTimeout(() => {
+      sandboxRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   const getBreathingPhase = () => {
@@ -257,113 +205,82 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
   };
 
   return (
-    <div className="flex flex-col min-h-screen pb-16">
-      {/* Sleek Floating Apple Header */}
-      <header className="sticky top-4 z-40 w-full max-w-5xl mx-auto px-4">
-        <div className="apple-panel rounded-full px-4 sm:px-5 py-2 flex items-center justify-between shadow-2xl transition-all border border-white/[0.08]">
+    <div className="min-h-screen bg-[#000000] text-[#f5f5f7] selection:bg-white selection:text-black">
+      {/* 1. MINIMAL APPLE NAVBAR */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#000000]/80 backdrop-blur-xl border-b border-white/[0.08]">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           {/* Brand */}
-          <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-black font-bold text-xs tracking-tight shadow-md">
+          <Link href="/" className="flex items-center space-x-2 group">
+            <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-black font-bold text-[10px] tracking-tight">
               HL
             </div>
-            <div className="flex flex-col">
-              <span className="text-[13px] font-semibold tracking-tight text-white leading-tight">
-                HumanLens
-              </span>
-              <span className="text-[10px] text-zinc-400 font-mono hidden sm:inline leading-none">
-                AI Conflict Firewall
-              </span>
-            </div>
-          </div>
+            <span className="text-[14px] font-medium tracking-tight text-white group-hover:text-zinc-300 transition-colors">
+              HumanLens
+            </span>
+          </Link>
 
-          {/* 3 Main Navigation Tabs */}
-          <nav className="flex items-center p-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+          {/* Clean Text Navigation */}
+          <nav className="hidden md:flex items-center space-x-8 text-[13px] text-zinc-400">
             <button
-              onClick={() => setActiveTab('write')}
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeTab === 'write' ? 'bg-white text-black shadow-sm font-semibold' : 'text-zinc-400 hover:text-white'
-              }`}
+              onClick={() => { setActiveSection('overview'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              className={`hover:text-white transition-colors ${activeSection === 'overview' ? 'text-white font-medium' : ''}`}
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Simulator</span>
+              Overview
             </button>
-
             <button
-              onClick={() => setActiveTab('trends')}
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeTab === 'trends' ? 'bg-white text-black shadow-sm font-semibold' : 'text-zinc-400 hover:text-white'
-              }`}
+              onClick={scrollToSandbox}
+              className="hover:text-white transition-colors"
             >
-              <Activity className="w-3.5 h-3.5" />
-              <span>Trends</span>
+              Sandbox
             </button>
-
             <button
-              onClick={() => setActiveTab('coach')}
-              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeTab === 'coach' ? 'bg-white text-black shadow-sm font-semibold' : 'text-zinc-400 hover:text-white'
-              }`}
+              onClick={() => { setActiveSection('trends'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              className={`hover:text-white transition-colors ${activeSection === 'trends' ? 'text-white font-medium' : ''}`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Coach</span>
+              Health Trends
             </button>
+            <Link
+              href="/research"
+              className="hover:text-white transition-colors flex items-center space-x-1"
+            >
+              <span>Research</span>
+              <ArrowUpRight className="w-3 h-3 text-zinc-500" />
+            </Link>
           </nav>
 
-          {/* Right Controls: User Auth, Extension Button, Log Day & Settings */}
-          <div className="flex items-center space-x-2">
-            {/* Chrome Extension Pill */}
+          {/* Right Action */}
+          <div className="flex items-center space-x-4">
             <button
               onClick={() => setIsExtensionModalOpen(true)}
-              className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium text-zinc-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.09] border border-white/[0.08] transition-all"
+              className="text-[12px] text-zinc-300 hover:text-white transition-colors hidden sm:inline"
             >
-              <Globe className="w-3.5 h-3.5 text-sky-400" />
-              <span>Extension</span>
+              Chrome Extension
             </button>
 
-            {/* Daily Check-in */}
-            <button
-              onClick={() => setIsCheckinOpen(true)}
-              className="hidden sm:flex items-center space-x-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/[0.08] transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Check-in</span>
-            </button>
-
-            {/* Settings Gear */}
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              title="Cloud & ML Settings"
-              className="p-1.5 rounded-full text-zinc-400 hover:text-white bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] transition-all"
-            >
-              <Settings className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Supabase User Authentication */}
             {currentUser ? (
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center space-x-1.5 p-1 sm:px-2.5 sm:py-1 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/[0.12] transition-all"
+                  className="flex items-center space-x-2 py-1 px-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.1] text-xs transition-all"
                 >
-                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px] font-bold">
+                  <div className="w-4 h-4 rounded-full bg-white text-black font-bold text-[9px] flex items-center justify-center">
                     {(currentUser.email?.[0] || 'U').toUpperCase()}
                   </div>
-                  <span className="text-[11px] text-zinc-200 hidden sm:inline max-w-[90px] truncate">
+                  <span className="max-w-[80px] truncate text-zinc-200">
                     {currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0]}
                   </span>
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 py-2 bg-[#121215] border border-white/[0.1] rounded-2xl shadow-2xl z-50 animate-fade-in text-xs">
-                    <div className="px-3 py-1.5 border-b border-white/[0.06] text-zinc-400">
-                      <div className="font-semibold text-white truncate">{currentUser.email}</div>
-                      <div className="text-[10px] text-emerald-400 font-mono">Protected Account</div>
+                  <div className="absolute right-0 mt-2 w-44 py-1.5 bg-[#121214] border border-white/[0.12] rounded-2xl shadow-2xl z-50 text-xs">
+                    <div className="px-3 py-1 text-zinc-400 truncate border-b border-white/[0.06] mb-1">
+                      {currentUser.email}
                     </div>
                     <button
                       onClick={handleSignOut}
-                      className="w-full px-3 py-2 text-left text-rose-400 hover:bg-white/[0.04] flex items-center space-x-2 transition-all"
+                      className="w-full px-3 py-1.5 text-left text-rose-400 hover:bg-white/[0.04] flex items-center space-x-2"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
+                      <LogOut className="w-3 h-3" />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -372,7 +289,7 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
             ) : (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-black hover:bg-zinc-200 transition-all shadow-sm active:scale-95"
+                className="px-3 py-1.5 rounded-full text-xs font-medium bg-white text-black hover:bg-zinc-200 transition-all active:scale-95"
               >
                 Sign In
               </button>
@@ -381,68 +298,128 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
         </div>
       </header>
 
-      {/* MAIN CONSUMER VIEWS */}
-      <main className="flex-1 px-4 sm:px-6">
-        {/* 1. CONFLICT SIMULATOR & WORKSPACE */}
-        {activeTab === 'write' && (
-          <div className="w-full max-w-3xl mx-auto space-y-8 pt-8 animate-fade-in">
-            {/* Hero Value Framing */}
-            <div className="text-center space-y-2.5 max-w-xl mx-auto">
-              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono mb-1">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Live ML Cloud Inference Active</span>
+      {/* 2. MAIN CONSUMER VIEWS */}
+      {activeSection === 'overview' ? (
+        <main className="pt-28 sm:pt-36">
+          {/* HERO SECTION */}
+          <section className="max-w-4xl mx-auto px-6 text-center space-y-6">
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-zinc-400 font-mono tracking-tight">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>HumanLens 1.0 • Communication Intelligence</span>
+            </div>
+
+            <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight text-white leading-[1.08]">
+              Never send a message<br />you&apos;ll regret.
+            </h1>
+
+            <p className="text-lg sm:text-xl text-[#86868b] max-w-2xl mx-auto font-normal leading-relaxed">
+              A real-time psychological firewall for high-stakes conversations across Gmail, Slack, and WhatsApp.
+            </p>
+
+            {/* Apple Minimal CTAs */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setIsExtensionModalOpen(true)}
+                className="w-full sm:w-auto px-6 py-3 rounded-full bg-white hover:bg-zinc-200 text-black text-[13px] font-semibold flex items-center justify-center space-x-2 transition-all shadow-xl active:scale-[0.98]"
+              >
+                <Globe className="w-4 h-4 text-black" />
+                <span>Add to Chrome &mdash; Free</span>
+              </button>
+
+              <button
+                onClick={scrollToSandbox}
+                className="w-full sm:w-auto px-6 py-3 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-white text-[13px] font-medium border border-white/[0.1] flex items-center justify-center space-x-2 transition-all"
+              >
+                <span>Try Interactive Sandbox</span>
+                <ArrowDown className="w-3.5 h-3.5 text-zinc-400" />
+              </button>
+            </div>
+
+            {/* VISUAL PRODUCT SHOWCASE (MOCKUP OF EXTENSION IN ACTION) */}
+            <div className="pt-12 sm:pt-16 max-w-3xl mx-auto">
+              <div className="rounded-3xl bg-[#0d0d0f] border border-white/[0.1] p-6 sm:p-8 text-left shadow-2xl relative overflow-hidden">
+                {/* Mock compose header */}
+                <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] text-xs text-zinc-400">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
+                    <span className="text-zinc-400 font-mono ml-2">Slack &bull; #engineering-leads</span>
+                  </div>
+                  <span className="text-[11px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    Protected by HumanLens
+                  </span>
+                </div>
+
+                {/* Mock message before/after */}
+                <div className="py-6 space-y-4">
+                  <div className="space-y-1">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-rose-400 flex items-center space-x-1.5">
+                      <span>Original Impulsive Draft (Intercepted)</span>
+                    </div>
+                    <p className="text-sm sm:text-base text-zinc-400 line-through decoration-rose-500/60 font-mono leading-relaxed">
+                      &ldquo;You completely screwed up our deployment and ignored everything I told you yesterday.&rdquo;
+                    </p>
+                  </div>
+
+                  {/* Transformed rewrite */}
+                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-emerald-400 font-semibold text-[11px] tracking-tight">
+                        &bull; Recommended De-escalation (Preserves Intent &amp; Accountability)
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">1-Tap Replaced</span>
+                    </div>
+                    <p className="text-sm sm:text-base text-zinc-100 font-normal leading-relaxed">
+                      &ldquo;I have serious concerns about the stability of yesterday&apos;s rollout. Let&apos;s walk through what broke so we can prevent this on the next sprint.&rdquo;
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between text-[11px] text-zinc-400">
+                  <span>Stanford Behavioral Science &bull; Gottman De-escalation Protocol</span>
+                  <span className="font-mono">Tension: 0.88 &rarr; 0.05</span>
+                </div>
               </div>
-              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-white leading-tight">
-                Never send a message you&apos;ll regret.
-              </h1>
-              <p className="text-[14px] text-zinc-400 font-normal leading-relaxed">
-                Test sensitive drafts in this private sandbox, or install our Chrome Extension to intercept tension live inside Gmail, Slack, and WhatsApp.
+            </div>
+          </section>
+
+          {/* 3. INTERACTIVE SANDBOX SECTION */}
+          <section ref={sandboxRef} id="sandbox" className="pt-32 pb-24 max-w-3xl mx-auto px-6">
+            <div className="text-center space-y-2 mb-8">
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+                Interactive Sandbox
+              </h2>
+              <p className="text-sm text-zinc-400 max-w-md mx-auto">
+                Test any sensitive email, Slack reply, or difficult message before sending.
               </p>
             </div>
 
-            {/* Quick Conflict Presets */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-[11px] text-zinc-400 px-1">
-                <span className="font-mono uppercase tracking-wider">Test high-stakes scenarios:</span>
-                <span className="text-zinc-500">Click any scenario to simulate</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {CONFLICT_PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleSelectPreset(p.text)}
-                    className="p-2.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/20 text-left transition-all group"
-                  >
-                    <div className="text-[11px] font-semibold text-zinc-200 group-hover:text-white mb-1">
-                      {p.tag}
-                    </div>
-                    <div className="text-[10px] text-zinc-500 line-clamp-2 leading-relaxed">
-                      &ldquo;{p.text}&rdquo;
-                    </div>
-                  </button>
-                ))}
-              </div>
+            {/* Subtle Scenario Chips */}
+            <div className="flex items-center justify-center flex-wrap gap-2 mb-4">
+              {CONFLICT_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => handleSelectPreset(p.text)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 hover:text-white border border-white/[0.08] transition-all active:scale-95"
+                >
+                  {p.tag}
+                </button>
+              ))}
             </div>
 
-            {/* Clean Apple Message Composer */}
-            <div className="apple-panel rounded-3xl p-6 sm:p-7 shadow-2xl transition-all relative border border-white/[0.08]">
-              <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
-                <div className="flex items-center space-x-2">
-                  <span className="text-[12px] font-medium text-zinc-400">
-                    Draft Simulation Canvas
-                  </span>
-                  {selectedRewrite && (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono">
-                      Rewritten ({selectedRewrite.style})
-                    </span>
-                  )}
-                </div>
+            {/* Focused Composer Canvas */}
+            <div className="rounded-3xl bg-[#09090b] border border-white/[0.1] p-6 sm:p-8 shadow-2xl transition-all relative">
+              <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4 text-xs">
+                <span className="text-zinc-400 font-medium">
+                  Draft Canvas
+                </span>
 
                 {analysis && (
-                  <div className="flex items-center space-x-2 animate-fade-in">
+                  <div className="flex items-center space-x-2">
                     <span className={`w-2 h-2 rounded-full ${analysis.intervention.triggered ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                    <span className="text-[12px] font-medium text-zinc-300 tracking-tight">
-                      {analysis.perception?.toneTag || (analysis.intervention.triggered ? 'Needs Reflection' : 'Constructive & Clear')}
+                    <span className="text-zinc-300 font-medium">
+                      {analysis.perception?.toneTag || (analysis.intervention.triggered ? 'Needs Reflection' : 'Clear & Constructive')}
                     </span>
                   </div>
                 )}
@@ -457,33 +434,27 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSend();
                 }}
-                placeholder="Type an email, Slack reply, or critical message to analyze tone..."
+                placeholder="Draft a difficult message to test its tone..."
                 rows={5}
-                className="w-full bg-transparent text-white placeholder-zinc-600 text-base sm:text-lg font-normal focus:outline-none resize-none leading-relaxed tracking-tight"
+                className="w-full bg-transparent text-white placeholder-zinc-600 text-base sm:text-lg focus:outline-none resize-none leading-relaxed tracking-tight"
               />
 
-              {/* Action Bar */}
               <div className="flex items-center justify-between pt-4 border-t border-white/[0.06] mt-4">
-                <div className="flex items-center space-x-3 text-xs text-zinc-500 font-mono">
-                  <span>{draft.length} chars</span>
-                  {analysis?.pythonMl?.active && (
-                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      Cloud ML: Active
-                    </span>
-                  )}
-                </div>
+                <span className="text-xs text-zinc-400 font-mono">
+                  {draft.length} chars
+                </span>
 
                 <button
                   onClick={handleSend}
                   disabled={!draft.trim() || isAnalyzing}
-                  className={`px-6 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-30 ${
+                  className={`px-5 py-2 rounded-full text-xs font-semibold flex items-center space-x-1.5 transition-all active:scale-95 disabled:opacity-30 ${
                     sentSuccess ? 'bg-emerald-400 text-black' : 'bg-white text-black hover:bg-zinc-200'
                   }`}
                 >
                   {isAnalyzing ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Analyzing...</span>
+                      <span>Checking...</span>
                     </>
                   ) : sentSuccess ? (
                     <>
@@ -499,207 +470,173 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
                 </button>
               </div>
             </div>
+          </section>
 
-            {/* Chrome Extension Promo Banner */}
-            <div className="apple-panel rounded-3xl p-6 sm:p-7 border border-white/[0.08] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-              <div className="space-y-1 max-w-lg">
-                <div className="flex items-center space-x-2 text-xs font-semibold text-white">
-                  <Globe className="w-4 h-4 text-sky-400" />
-                  <span>Use HumanLens inside your everyday apps</span>
-                </div>
-                <p className="text-xs text-zinc-400 leading-relaxed">
-                  You don&apos;t have to copy-paste. Our Chrome Extension floats beside active textboxes in <strong>Gmail</strong>, <strong>Slack Web</strong>, and <strong>WhatsApp Web</strong> to catch sharp replies right where you type.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setIsExtensionModalOpen(true)}
-                className="px-4 py-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.14] text-white text-xs font-semibold flex items-center space-x-2 border border-white/[0.1] transition-all shrink-0"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Get Chrome Extension</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 2. TRENDS VIEW (APPLE HEALTH STYLE) */}
-        {activeTab === 'trends' && (
-          <div className="w-full max-w-3xl mx-auto space-y-8 pt-8 animate-fade-in">
-            <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
-                  Behavioral Health &amp; Tone Trends
-                </h1>
-                <p className="text-[13px] text-[#86868b] mt-0.5">
-                  How biological strain, sleep deficit, and workload correlate with your communication friction.
-                </p>
-              </div>
-
-              <button
-                onClick={() => setIsCheckinOpen(true)}
-                className="flex items-center space-x-1 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-black hover:bg-zinc-200 transition-all active:scale-95 shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Log Today</span>
-              </button>
-            </div>
-
-            {/* Apple Stat Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="apple-panel p-4 rounded-2xl space-y-1">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Sleep Average</span>
-                <div className="text-2xl font-semibold tracking-tight text-white">
-                  {behaviorData?.avgSleep || 5.7}<span className="text-xs font-normal text-zinc-500 ml-1">hrs</span>
-                </div>
-                <p className="text-[11px] text-zinc-400">-1.3h under personal target</p>
-              </div>
-
-              <div className="apple-panel p-4 rounded-2xl space-y-1">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Stress Level</span>
-                <div className="text-2xl font-semibold tracking-tight text-white">
-                  {behaviorData?.avgStress || 6.9}<span className="text-xs font-normal text-zinc-500 ml-1">/10</span>
-                </div>
-                <p className="text-[11px] text-zinc-400">Peak observed mid-week</p>
-              </div>
-
-              <div className="apple-panel p-4 rounded-2xl space-y-1">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Daily Affect</span>
-                <div className="text-2xl font-semibold tracking-tight text-white">
-                  {behaviorData?.avgMood || 2.6}<span className="text-xs font-normal text-zinc-500 ml-1">/5</span>
-                </div>
-                <p className="text-[11px] text-zinc-400">Moderate fluctuation</p>
-              </div>
-
-              <div className="apple-panel p-4 rounded-2xl space-y-1">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">Impulse Risk</span>
-                <div className="text-2xl font-semibold tracking-tight text-white">
-                  Elevated
-                </div>
-                <p className="text-[11px] text-zinc-400">Higher chance of sharp replies</p>
-              </div>
-            </div>
-
-            {/* Area Chart */}
-            <div className="apple-panel rounded-3xl p-6 space-y-4 border border-white/[0.08]">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-white tracking-tight">
-                  Stress &amp; Sleep Correlation
-                </span>
-                <div className="flex items-center space-x-4 text-[11px] text-zinc-400 font-mono">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-0.5 bg-white"></span> Stress
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-0.5 bg-zinc-500"></span> Sleep
-                  </span>
-                </div>
-              </div>
-
-              <div className="h-56 w-full">
-                {behaviorData?.trends && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={behaviorData.trends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="cStress" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#ffffff" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="cSleep" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#71717a" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#71717a" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="2 2" stroke="rgba(255,255,255,0.04)" />
-                      <XAxis dataKey="date" stroke="#52525b" fontSize={11} tickLine={false} />
-                      <YAxis stroke="#52525b" fontSize={11} tickLine={false} domain={[0, 10]} />
-                      <Tooltip
-                        content={({ active, payload, label }: any) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="apple-panel-elevated p-2.5 rounded-xl border border-white/20 text-xs space-y-1 shadow-2xl">
-                                <div className="font-medium text-white">{label}</div>
-                                <div className="text-zinc-300 font-mono">Stress: {payload[0]?.value} / 10</div>
-                                <div className="text-zinc-400 font-mono">Sleep: {payload[1]?.value} hrs</div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Area type="monotone" dataKey="stress" stroke="#ffffff" strokeWidth={1.5} fillOpacity={1} fill="url(#cStress)" />
-                      <Area type="monotone" dataKey="sleep" stroke="#71717a" strokeWidth={1.5} strokeDasharray="3 3" fillOpacity={1} fill="url(#cSleep)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 3. COACH VIEW */}
-        {activeTab === 'coach' && (
-          <div className="w-full max-w-2xl mx-auto space-y-4 pt-8 flex flex-col h-[76vh] animate-fade-in">
-            <div className="text-center space-y-1 pb-3 border-b border-white/[0.06]">
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white">
-                Reflection Coach
-              </h1>
-              <p className="text-[13px] text-[#86868b]">
-                Evidence-grounded conflict resolution and communication guidance.
+          {/* 4. APPLE BENTO GRID: 3 CORE PILLARS */}
+          <section className="py-24 max-w-5xl mx-auto px-6 border-t border-white/[0.06]">
+            <div className="text-center space-y-2 mb-16">
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+                Engineered for clarity under pressure.
+              </h2>
+              <p className="text-sm text-zinc-400 max-w-lg mx-auto">
+                HumanLens pairs clinical conflict research with real-time browser intelligence.
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3 px-1 py-3">
-              {messages.map((m) => (
-                <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  <div
-                    className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed tracking-tight ${
-                      m.role === 'user' ? 'bg-white text-black font-normal rounded-tr-sm' : 'apple-panel text-zinc-100 rounded-tl-sm space-y-2 border border-white/[0.08]'
-                    }`}
-                  >
-                    <div className="whitespace-pre-wrap">{m.content}</div>
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Card 1 */}
+              <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-8 space-y-4 hover:border-white/20 transition-all">
+                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
+                  <Globe className="w-5 h-5 text-sky-400" />
                 </div>
-              ))}
-              {chatLoading && (
-                <div className="flex items-center space-x-1.5 p-3 rounded-2xl apple-panel w-fit">
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.2s]"></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.4s]"></span>
-                </div>
-              )}
-              <div ref={chatBottomRef} />
-            </div>
+                <h3 className="text-lg font-semibold text-white tracking-tight">
+                  Seamless Keyboard Interception
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  No copy-pasting required. A discreet floating pill appears beside compose boxes in Gmail, Slack Web, and WhatsApp, defusing messages before you send.
+                </p>
+              </div>
 
-            <div className="pt-1">
-              <div className="apple-panel rounded-full p-1 pl-4 pr-1.5 flex items-center gap-2 border border-white/[0.12]">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSendChat();
-                  }}
-                  placeholder="Ask for advice on an email or difficult conversation..."
-                  className="flex-1 bg-transparent text-[13px] text-white placeholder-zinc-500 focus:outline-none"
-                />
-                <button
-                  onClick={handleSendChat}
-                  disabled={!chatInput.trim() || chatLoading}
-                  className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center hover:bg-zinc-200 transition-all disabled:opacity-30 active:scale-95"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
+              {/* Card 2 */}
+              <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-8 space-y-4 hover:border-white/20 transition-all">
+                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white tracking-tight">
+                  Autonomic Regulation
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Grounded in Stanford neuroscience, the 20-second cooling pause activates physiological sigh downregulation to suppress autonomic fight-or-flight reactivity.
+                </p>
+              </div>
+
+              {/* Card 3 */}
+              <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-8 space-y-4 hover:border-white/20 transition-all">
+                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
+                  <ShieldCheck className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-white tracking-tight">
+                  Zero-Knowledge Privacy
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Biometrics and facial action units are analyzed purely inside your local browser memory. Zero raw video, audio, or keystrokes are ever stored.
+                </p>
               </div>
             </div>
-          </div>
-        )}
-      </main>
+          </section>
+        </main>
+      ) : (
+        /* TRENDS VIEW (APPLE HEALTH STYLE) */
+        <main className="pt-28 sm:pt-36 max-w-4xl mx-auto px-6 space-y-8 animate-fade-in pb-24">
+          <div className="flex items-center justify-between pb-6 border-b border-white/[0.06]">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-white">
+                Behavioral Health Trends
+              </h1>
+              <p className="text-xs text-zinc-400 mt-1">
+                How biological strain and sleep debt correlate with your communication friction.
+              </p>
+            </div>
 
-      {/* CONSUMER DE-ESCALATION MODAL */}
+            <button
+              onClick={() => setIsCheckinOpen(true)}
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-black hover:bg-zinc-200 transition-all active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Log Today</span>
+            </button>
+          </div>
+
+          {/* Stat Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
+              <span className="text-[11px] font-mono uppercase text-zinc-400">Sleep Average</span>
+              <div className="text-2xl font-semibold text-white">
+                {behaviorData?.avgSleep || 5.7}<span className="text-xs font-normal text-zinc-400 ml-1">hrs</span>
+              </div>
+              <p className="text-[11px] text-zinc-400">-1.3h under personal target</p>
+            </div>
+
+            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
+              <span className="text-[11px] font-mono uppercase text-zinc-400">Stress Level</span>
+              <div className="text-2xl font-semibold text-white">
+                {behaviorData?.avgStress || 6.9}<span className="text-xs font-normal text-zinc-400 ml-1">/10</span>
+              </div>
+              <p className="text-[11px] text-zinc-400">Peak observed mid-week</p>
+            </div>
+
+            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
+              <span className="text-[11px] font-mono uppercase text-zinc-400">Daily Affect</span>
+              <div className="text-2xl font-semibold text-white">
+                {behaviorData?.avgMood || 2.6}<span className="text-xs font-normal text-zinc-400 ml-1">/5</span>
+              </div>
+              <p className="text-[11px] text-zinc-400">Moderate fluctuation</p>
+            </div>
+
+            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
+              <span className="text-[11px] font-mono uppercase text-zinc-400">Impulse Risk</span>
+              <div className="text-2xl font-semibold text-white">
+                Elevated
+              </div>
+              <p className="text-[11px] text-zinc-400">Higher friction probability</p>
+            </div>
+          </div>
+
+          {/* Area Chart */}
+          <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-6 space-y-4">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-white">Stress &amp; Sleep Correlation (7 Days)</span>
+              <div className="flex items-center space-x-4 text-[11px] text-zinc-400 font-mono">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-white"></span> Stress</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-zinc-500"></span> Sleep</span>
+              </div>
+            </div>
+
+            <div className="h-60 w-full">
+              {behaviorData?.trends && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={behaviorData.trends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="cStress" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ffffff" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="cSleep" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#71717a" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#71717a" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="2 2" stroke="rgba(255,255,255,0.04)" />
+                    <XAxis dataKey="date" stroke="#52525b" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#52525b" fontSize={11} tickLine={false} domain={[0, 10]} />
+                    <Tooltip
+                      content={({ active, payload, label }: any) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="p-2.5 rounded-xl bg-[#18181b] border border-white/20 text-xs space-y-1 shadow-2xl">
+                              <div className="font-medium text-white">{label}</div>
+                              <div className="text-zinc-300 font-mono">Stress: {payload[0]?.value} / 10</div>
+                              <div className="text-zinc-400 font-mono">Sleep: {payload[1]?.value} hrs</div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area type="monotone" dataKey="stress" stroke="#ffffff" strokeWidth={1.5} fillOpacity={1} fill="url(#cStress)" />
+                    <Area type="monotone" dataKey="sleep" stroke="#71717a" strokeWidth={1.5} strokeDasharray="3 3" fillOpacity={1} fill="url(#cSleep)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* 5. MINIMAL DE-ESCALATION OVERLAY */}
       {showIntervention && analysis?.intervention && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
-          <div className="apple-panel-elevated w-full max-w-xl rounded-3xl p-7 sm:p-8 space-y-6 max-h-[88vh] overflow-y-auto border border-white/[0.14] shadow-2xl">
+          <div className="w-full max-w-xl rounded-3xl bg-[#0d0d0f] p-7 sm:p-8 space-y-6 max-h-[88vh] overflow-y-auto border border-white/[0.14] shadow-2xl">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <span className="text-[11px] font-mono tracking-wider uppercase text-zinc-400">
@@ -715,26 +652,25 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
 
               <button
                 onClick={() => setShowIntervention(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white hover:bg-white/10"
+                className="p-1 rounded-full text-zinc-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Circular Breathing Timer */}
-            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
+            {/* 20s Cooling Pause */}
+            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="relative w-14 h-14 rounded-full border border-white/20 flex items-center justify-center">
-                  <span className="text-lg font-mono font-medium text-white">
+                <div className="relative w-12 h-12 rounded-full border border-white/20 flex items-center justify-center">
+                  <span className="text-base font-mono font-medium text-white">
                     {timerSeconds}s
                   </span>
-                  <div className="absolute inset-0 rounded-full border border-white/40 animate-breathe-ring pointer-events-none" />
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-white">
                     {timerSeconds > 0 ? getBreathingPhase() : 'Pause complete'}
                   </div>
-                  <div className="text-[11px] text-zinc-500 font-mono">
+                  <div className="text-[11px] text-zinc-400 font-mono">
                     20s Cooling Pause &bull; Box Breathing
                   </div>
                 </div>
@@ -748,37 +684,35 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
               </button>
             </div>
 
-            {/* 3 Constructive Alternatives */}
-            <div className="space-y-2.5">
+            {/* Rewrites */}
+            <div className="space-y-2">
               <span className="text-[11px] font-mono tracking-wider uppercase text-zinc-400">
-                Constructive Alternatives (One-tap replace)
+                Constructive Alternatives (1-Tap Replace)
               </span>
 
-              <div className="space-y-2">
-                {analysis.intervention.rewrites.map((rw, i) => (
-                  <div
-                    key={i}
-                    onClick={() => applyRewrite(rw)}
-                    className="p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between text-xs font-medium text-zinc-300 mb-1">
-                      <span>{rw.style}</span>
-                      <span className="text-[11px] text-zinc-500 group-hover:text-white flex items-center gap-0.5">
-                        Apply <ArrowUpRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                    <p className="text-sm text-zinc-100 leading-relaxed font-normal">
-                      &ldquo;{rw.text}&rdquo;
-                    </p>
+              {analysis.intervention.rewrites.map((rw, i) => (
+                <div
+                  key={i}
+                  onClick={() => applyRewrite(rw)}
+                  className="p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-xs font-medium text-zinc-300 mb-1">
+                    <span>{rw.style}</span>
+                    <span className="text-[11px] text-zinc-400 group-hover:text-white flex items-center gap-0.5">
+                      Apply <ArrowUpRight className="w-3 h-3" />
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <p className="text-sm text-zinc-200 leading-relaxed font-normal">
+                    &ldquo;{rw.text}&rdquo;
+                  </p>
+                </div>
+              ))}
             </div>
 
-            {/* Autonomy Preserving Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
-              <span className="text-[11px] text-zinc-500">
-                You maintain complete freedom to send your original text.
+            {/* Action Bar */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08] text-xs">
+              <span className="text-[11px] text-zinc-400">
+                You maintain complete autonomy to send your original.
               </span>
 
               <div className="flex items-center space-x-2">
@@ -793,15 +727,15 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
                       setSentSuccess(false);
                     }, 1800);
                   }}
-                  className="px-3.5 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+                  className="px-3 py-1.5 text-zinc-400 hover:text-white transition-colors"
                 >
                   Send Original
                 </button>
                 <button
                   onClick={() => setShowIntervention(false)}
-                  className="px-4 py-1.5 rounded-full text-xs font-semibold bg-white text-black hover:bg-zinc-200 transition-all"
+                  className="px-4 py-1.5 rounded-full font-semibold bg-white text-black hover:bg-zinc-200 transition-all"
                 >
-                  Edit Message
+                  Edit
                 </button>
               </div>
             </div>
@@ -809,18 +743,18 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
         </div>
       )}
 
-      {/* Chrome Extension Modal / Instructions */}
+      {/* 6. CHROME EXTENSION MODAL */}
       {isExtensionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
-          <div className="apple-panel-elevated w-full max-w-lg rounded-3xl p-7 sm:p-8 space-y-5 border border-white/[0.12] shadow-2xl">
+          <div className="w-full max-w-md rounded-3xl bg-[#0d0d0f] p-7 space-y-5 border border-white/[0.12] shadow-2xl">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-                  <Globe className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
+                  <Globe className="w-5 h-5 text-sky-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">HumanLens Chrome Extension</h3>
-                  <p className="text-xs text-zinc-400">Real-time typing de-escalation inside your browser</p>
+                  <h3 className="text-base font-semibold text-white">HumanLens for Chrome</h3>
+                  <p className="text-xs text-zinc-400">Real-time typing de-escalation</p>
                 </div>
               </div>
               <button
@@ -831,31 +765,31 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
               </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-3 text-xs leading-relaxed text-zinc-300">
-              <div className="font-semibold text-white">Easy 3-Step Setup:</div>
-              <ol className="list-decimal list-inside space-y-1.5 text-zinc-300">
-                <li>Open Chrome and navigate to <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono">chrome://extensions</code></li>
-                <li>Turn on <strong>Developer Mode</strong> in the top-right corner.</li>
-                <li>Click <strong>Load unpacked</strong> and choose the <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono">extension</code> folder from your project repository.</li>
+            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2.5 text-xs text-zinc-300 leading-relaxed">
+              <div className="font-semibold text-white">Setup in 3 Steps:</div>
+              <ol className="list-decimal list-inside space-y-1.5 text-zinc-400">
+                <li>Open Chrome: <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono">chrome://extensions</code></li>
+                <li>Turn on <strong>Developer Mode</strong> (top-right).</li>
+                <li>Click <strong>Load unpacked</strong> and select the <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono">extension</code> folder from your project.</li>
               </ol>
             </div>
 
-            <div className="space-y-2 text-xs text-zinc-400">
+            <div className="space-y-1.5 text-xs text-zinc-400">
               <div className="flex items-center space-x-2">
                 <Check className="w-4 h-4 text-emerald-400" />
-                <span>Zero configuration — pre-wired to your live cloud API</span>
+                <span>Active across Gmail, Slack Web &amp; WhatsApp Web</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Check className="w-4 h-4 text-emerald-400" />
-                <span>Active on Gmail, Slack Web, and WhatsApp Web</span>
+                <span>Pre-wired to your live cloud API</span>
               </div>
             </div>
 
             <button
               onClick={() => setIsExtensionModalOpen(false)}
-              className="w-full py-2.5 rounded-2xl bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all"
+              className="w-full py-2.5 rounded-full bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all"
             >
-              Got it
+              Done
             </button>
           </div>
         </div>
@@ -868,38 +802,35 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({ apiKey, onSaveApiKey }
         onCheckinSuccess={() => {}}
       />
 
-      {/* Cloud & Database Settings Modal */}
+      {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        apiKey={apiKey || ''}
-        onSaveApiKey={(key) => {
-          if (onSaveApiKey) onSaveApiKey(key);
-        }}
+        apiKey=""
+        onSaveApiKey={() => {}}
       />
 
-      {/* Supabase Authentication Modal */}
+      {/* Supabase Auth Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onAuthSuccess={(user) => setCurrentUser(user)}
       />
 
-      {/* Minimalist Consumer Footer with Discrete Academic Defense Link */}
-      <footer className="mt-auto pt-16 border-t border-white/[0.06] max-w-5xl mx-auto w-full px-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-500 gap-4">
-        <div className="flex items-center space-x-4">
-          <span>&copy; {new Date().getFullYear()} HumanLens AI. All rights reserved.</span>
+      {/* 7. APPLE MINIMAL FOOTER */}
+      <footer className="mt-32 border-t border-white/[0.06] max-w-5xl mx-auto w-full px-6 py-10 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-400 gap-4">
+        <div className="flex items-center space-x-3">
+          <span>&copy; {new Date().getFullYear()} HumanLens AI</span>
           <span>&bull;</span>
-          <span className="text-zinc-400">Zero Keystroke Logging</span>
+          <span>Zero Keystroke Logging</span>
         </div>
 
-        {/* Subtle, Discrete Academic Defense Link */}
         <Link
           href="/research"
-          className="flex items-center space-x-1 text-zinc-500 hover:text-zinc-300 font-mono transition-colors"
+          className="flex items-center space-x-1 text-zinc-400 hover:text-white transition-colors font-mono text-[11px]"
         >
           <span>Research &amp; ML Evaluation Studio</span>
-          <ExternalLink className="w-3 h-3" />
+          <ArrowUpRight className="w-3 h-3" />
         </Link>
       </footer>
     </div>
