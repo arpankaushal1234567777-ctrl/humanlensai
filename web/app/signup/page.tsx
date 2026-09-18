@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User as UserIcon, Eye, EyeOff, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Eye, EyeOff, Loader2, ArrowRight, CheckCircle2, MailCheck } from 'lucide-react';
 import { signUpWithEmail, getCurrentUser } from '../../lib/supabaseAuth';
 
 export default function SignUpPage() {
@@ -29,11 +29,13 @@ export default function SignUpPage() {
     setLoading(true);
     try {
       const res = await signUpWithEmail(email, password, fullName);
-      if (res.user) {
+      if (res.user && res.session) {
+        // Auto-confirmed (email confirmation disabled) — go straight in
         setSuccess('Account created! Taking you in…');
         setTimeout(() => { window.location.href = '/'; }, 900);
       } else {
-        setSuccess('Check your email to verify your account.');
+        // Email confirmation required — make this very clear
+        setSuccess('VERIFY_EMAIL');
       }
     } catch (err: any) {
       setError(err.message || 'Could not create account.');
@@ -87,7 +89,32 @@ export default function SignUpPage() {
               {error}
             </div>
           )}
-          {success && (
+
+          {/* ── Email verification sent state ── */}
+          {success === 'VERIFY_EMAIL' ? (
+            <div className="py-4 flex flex-col items-center text-center animate-fade-in">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
+                <MailCheck className="w-7 h-7 text-emerald-400" />
+              </div>
+              <h3 className="text-white font-semibold text-[16px] mb-2">Check your inbox</h3>
+              <p className="text-white/40 text-[13px] leading-relaxed mb-1">
+                We sent a confirmation link to
+              </p>
+              <p className="text-white/70 text-[13px] font-medium mb-5">{email}</p>
+              <p className="text-white/30 text-[12px] leading-relaxed max-w-[240px]">
+                Click the link in the email, then come back here to sign in.
+              </p>
+              <Link
+                href="/login"
+                className="mt-6 flex items-center space-x-1.5 px-4 py-2.5 rounded-full bg-white text-black text-[13px] font-semibold hover:bg-white/90 transition-all active:scale-95"
+              >
+                <span>Go to Sign In</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          ) : (
+            <>
+          {success && success !== 'VERIFY_EMAIL' && (
             <div className="mb-5 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[13px] flex items-center justify-center space-x-2 animate-fade-in">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{success}</span>
@@ -197,6 +224,8 @@ export default function SignUpPage() {
               Sign in
             </Link>
           </p>
+            </>
+          )}
         </div>
 
         {/* Footer note */}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, MailCheck } from 'lucide-react';
 import { signInWithEmail, getCurrentUser } from '../../lib/supabaseAuth';
 
 export default function LoginPage() {
@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   useEffect(() => {
     getCurrentUser()
@@ -23,12 +24,20 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNeedsConfirmation(false);
     setLoading(true);
     try {
       const res = await signInWithEmail(email, password);
       if (res.user) window.location.href = '/';
     } catch (err: any) {
-      setError(err.message || 'Incorrect email or password.');
+      const msg: string = err.message || '';
+      if (msg.toLowerCase().includes('email not confirmed') || msg.toLowerCase().includes('not confirmed')) {
+        setNeedsConfirmation(true);
+      } else if (msg.toLowerCase().includes('invalid login') || msg.toLowerCase().includes('invalid credentials')) {
+        setError('Incorrect email or password. Please try again.');
+      } else {
+        setError(msg || 'Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -69,8 +78,22 @@ export default function LoginPage() {
             <p className="text-[13px] text-white/40 mt-1">to continue to HumanLens</p>
           </div>
 
-          {/* Error */}
-          {error && (
+          {/* Email confirmation banner */}
+          {needsConfirmation && (
+            <div className="mb-5 px-4 py-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 animate-fade-in">
+              <div className="flex items-center space-x-2.5 mb-1.5">
+                <MailCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-amber-300 text-[13px] font-semibold">Check your inbox</span>
+              </div>
+              <p className="text-amber-300/70 text-[12px] leading-relaxed pl-6.5">
+                We sent a confirmation link to <span className="text-amber-300 font-medium">{email}</span>.
+                Click it to verify your account, then sign in here.
+              </p>
+            </div>
+          )}
+
+          {/* Generic error */}
+          {error && !needsConfirmation && (
             <div className="mb-5 px-4 py-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[13px] text-center animate-fade-in">
               {error}
             </div>
