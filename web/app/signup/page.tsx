@@ -3,203 +3,309 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, Sparkles, Sun, Moon, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import {
+  Mail, Lock, User as UserIcon, ArrowRight, Loader2, Eye, EyeOff,
+  ShieldCheck, CheckCircle2, Sparkles, Brain, Activity, MessageSquare
+} from 'lucide-react';
 import { signUpWithEmail, getCurrentUser } from '../../lib/supabaseAuth';
+
+const PERKS = [
+  { icon: Brain, label: 'Multimodal analysis of tone & urgency' },
+  { icon: ShieldCheck, label: '20-second de-escalation pause system' },
+  { icon: Activity, label: 'Weekly behavioral wellness trends' },
+  { icon: MessageSquare, label: 'AI reflection coach for workplace conflict' },
+];
 
 export default function SignUpPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
-    getCurrentUser().then((user) => {
-      if (user) router.push('/');
-    }).catch(() => {});
-
-    const savedTheme = localStorage.getItem('hl_theme') as 'dark' | 'light' | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.classList.remove('dark', 'light');
-      document.documentElement.classList.add(savedTheme);
-    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-      setTheme('light');
-      document.documentElement.classList.remove('dark', 'light');
-      document.documentElement.classList.add('light');
-    }
+    getCurrentUser()
+      .then((user) => { if (user) router.push('/'); })
+      .catch(() => {});
   }, [router]);
-
-  const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-    localStorage.setItem('hl_theme', next);
-    document.documentElement.classList.remove('dark', 'light');
-    document.documentElement.classList.add(next);
-  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
     setLoading(true);
-
     try {
       const res = await signUpWithEmail(email, password, fullName);
       if (res.user) {
-        setSuccessMsg('Account created successfully! Redirecting...');
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 900);
+        setSuccessMsg('Account created! Redirecting you...');
+        setTimeout(() => { window.location.href = '/'; }, 900);
       } else {
-        setSuccessMsg('Account registered! Please check your email to verify.');
+        setSuccessMsg('Check your email to verify your account.');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not create account. Please check your details.');
+      setErrorMsg(err.message || 'Could not create account. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const passwordStrength = (() => {
+    if (password.length === 0) return null;
+    if (password.length < 6) return { label: 'Too short', color: 'bg-rose-500', w: 'w-1/4' };
+    if (password.length < 9) return { label: 'Weak', color: 'bg-amber-500', w: 'w-1/2' };
+    if (password.length < 12) return { label: 'Good', color: 'bg-sky-500', w: 'w-3/4' };
+    return { label: 'Strong', color: 'bg-emerald-500', w: 'w-full' };
+  })();
+
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col justify-between p-6 transition-colors duration-300">
-      {/* Top Header */}
-      <div className="max-w-5xl w-full mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2 group">
-          <div className="w-6 h-6 rounded-full bg-black dark:bg-white flex items-center justify-center text-white dark:text-black font-bold text-[10px] tracking-tight transition-colors">
-            HL
-          </div>
-          <span className="text-[14px] font-semibold tracking-tight text-zinc-900 dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
-            HumanLens
-          </span>
-        </Link>
+    <div className="min-h-screen flex">
+      {/* ── LEFT BRAND PANEL ── */}
+      <div className="hidden lg:flex flex-col w-[52%] relative bg-black overflow-hidden">
+        {/* Ambient orbs */}
+        <div className="absolute -top-32 -right-20 w-[480px] h-[480px] rounded-full bg-violet-600/20 blur-[120px] pointer-events-none" />
+        <div className="absolute top-1/3 -left-20 w-[350px] h-[350px] rounded-full bg-indigo-500/15 blur-[100px] pointer-events-none" />
+        <div className="absolute -bottom-20 right-1/4 w-[400px] h-[400px] rounded-full bg-sky-600/15 blur-[120px] pointer-events-none" />
 
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            className="p-2 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.08] transition-all"
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-700" />}
-          </button>
-          <Link
-            href="/"
-            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white transition-colors flex items-center space-x-1"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to App</span>
-          </Link>
-        </div>
-      </div>
+        {/* Subtle grid */}
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)`,
+            backgroundSize: '40px 40px',
+          }}
+        />
 
-      {/* SignUp Card */}
-      <div className="max-w-sm w-full mx-auto my-auto animate-fade-in">
-        <div className="rounded-3xl bg-white dark:bg-[#0d0d0f] border border-black/[0.08] dark:border-white/[0.1] p-7 sm:p-8 shadow-xl dark:shadow-2xl transition-all">
-          <div className="text-center space-y-2 mb-6">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/[0.08] mb-1">
-              <Sparkles className="w-5 h-5 text-zinc-900 dark:text-white" />
+        <div className="relative z-10 flex flex-col h-full p-10">
+          {/* Logo */}
+          <Link href="/" className="flex items-center space-x-2.5 w-fit">
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-black font-bold text-[12px] shadow-lg">
+              HL
             </div>
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-white tracking-tight">
-              Create your account
+            <span className="text-white font-semibold text-[15px] tracking-tight">HumanLens</span>
+          </Link>
+
+          {/* Hero copy */}
+          <div className="mt-auto mb-10 animate-slide-up">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.05] text-[11px] text-zinc-400 font-mono mb-6">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+              <span>Free · No credit card required</span>
+            </div>
+
+            <h1 className="text-4xl xl:text-5xl font-semibold text-white tracking-tight leading-[1.1] mb-4">
+              Your emotional<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-indigo-400 to-sky-400">
+                intelligence layer.
+              </span>
             </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Start tracking communication tone and preventing impulsive friction.
+            <p className="text-zinc-400 text-sm leading-relaxed max-w-sm">
+              Join thousands of professionals using HumanLens to communicate with more empathy, clarity, and confidence.
             </p>
           </div>
 
-          {errorMsg && (
-            <div className="mb-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-300 text-xs leading-relaxed">
-              {errorMsg}
-            </div>
-          )}
+          {/* Perks */}
+          <div className="space-y-3.5 mb-8">
+            {PERKS.map((p, i) => {
+              const Icon = p.icon;
+              return (
+                <div
+                  key={p.label}
+                  className="flex items-center space-x-3 animate-slide-up"
+                  style={{ animationDelay: `${i * 80}ms` }}
+                >
+                  <div className="w-5 h-5 rounded-full bg-white/[0.08] flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-3 h-3 text-violet-400" />
+                  </div>
+                  <span className="text-zinc-300 text-[13px]">{p.label}</span>
+                </div>
+              );
+            })}
+          </div>
 
-          {successMsg && (
-            <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>{successMsg}</span>
-            </div>
-          )}
+          {/* Trust badge */}
+          <div className="flex items-center space-x-2 text-[11px] text-zinc-600">
+            <ShieldCheck className="w-3.5 h-3.5 text-zinc-700" />
+            <span>End-to-end encrypted · Zero keystroke logging · Open source research</span>
+          </div>
+        </div>
+      </div>
 
-          <form onSubmit={handleSignUp} className="space-y-3.5">
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 ml-1">Full Name</label>
-              <div className="relative">
-                <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Alex Morgan"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] focus:border-black/30 dark:focus:border-white/30 rounded-2xl text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all"
-                />
+      {/* ── RIGHT FORM PANEL ── */}
+      <div className="flex-1 flex flex-col bg-[#09090b] lg:bg-[#050506]">
+        {/* Mobile top bar */}
+        <div className="lg:hidden flex items-center justify-between px-5 pt-5 pb-2">
+          <Link href="/" className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center text-black font-bold text-[11px]">HL</div>
+            <span className="text-white font-semibold text-sm">HumanLens</span>
+          </Link>
+          <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">← Back</Link>
+        </div>
+
+        {/* Center form */}
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-[380px] animate-fade-in">
+            {/* Header */}
+            <div className="mb-7">
+              <div className="inline-flex items-center justify-center w-10 h-10 rounded-2xl bg-white/[0.06] border border-white/[0.1] mb-4">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
+              <h2 className="text-2xl font-semibold text-white tracking-tight">Create your account</h2>
+              <p className="text-zinc-500 text-sm mt-1">
+                Free to start — sync across all your devices.
+              </p>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 ml-1">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input
-                  type="email"
-                  required
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] focus:border-black/30 dark:focus:border-white/30 rounded-2xl text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all"
-                />
+            {/* Error / Success */}
+            {errorMsg && (
+              <div className="mb-5 px-4 py-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs leading-relaxed animate-fade-in">
+                {errorMsg}
               </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400 ml-1">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.08] dark:border-white/[0.08] focus:border-black/30 dark:focus:border-white/30 rounded-2xl text-xs text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 outline-none transition-all"
-                />
+            )}
+            {successMsg && (
+              <div className="mb-5 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center space-x-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{successMsg}</span>
               </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleSignUp} className="space-y-4">
+              {/* Full Name */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-zinc-400 tracking-wide uppercase ml-0.5">
+                  Full Name
+                </label>
+                <div className={`relative rounded-2xl transition-all duration-200 ${focusedField === 'name' ? 'ring-1 ring-white/20' : ''}`}>
+                  <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
+                  <input
+                    type="text"
+                    required
+                    autoComplete="name"
+                    placeholder="Alex Morgan"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    onFocus={() => setFocusedField('name')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full pl-10 pr-4 py-3 bg-white/[0.04] hover:bg-white/[0.06] border border-white/[0.08] rounded-2xl text-sm text-white placeholder-zinc-600 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-zinc-400 tracking-wide uppercase ml-0.5">
+                  Email
+                </label>
+                <div className={`relative rounded-2xl transition-all duration-200 ${focusedField === 'email' ? 'ring-1 ring-white/20' : ''}`}>
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full pl-10 pr-4 py-3 bg-white/[0.04] hover:bg-white/[0.06] border border-white/[0.08] rounded-2xl text-sm text-white placeholder-zinc-600 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-zinc-400 tracking-wide uppercase ml-0.5">
+                  Password
+                </label>
+                <div className={`relative rounded-2xl transition-all duration-200 ${focusedField === 'password' ? 'ring-1 ring-white/20' : ''}`}>
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    placeholder="Min. 6 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
+                    className="w-full pl-10 pr-11 py-3 bg-white/[0.04] hover:bg-white/[0.06] border border-white/[0.08] rounded-2xl text-sm text-white placeholder-zinc-600 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {/* Password strength bar */}
+                {passwordStrength && (
+                  <div className="flex items-center space-x-2 mt-1.5 animate-fade-in">
+                    <div className="flex-1 h-1 bg-white/[0.08] rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${passwordStrength.color} ${passwordStrength.w}`}
+                      />
+                    </div>
+                    <span className={`text-[10px] font-medium ${
+                      passwordStrength.label === 'Too short' ? 'text-rose-400' :
+                      passwordStrength.label === 'Weak' ? 'text-amber-400' :
+                      passwordStrength.label === 'Good' ? 'text-sky-400' : 'text-emerald-400'
+                    }`}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-1 py-3.5 px-4 rounded-2xl bg-white hover:bg-zinc-100 text-black text-sm font-semibold flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>Create Account</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="flex items-center my-5">
+              <div className="flex-1 h-px bg-white/[0.06]" />
+              <span className="mx-3 text-[11px] text-zinc-600">or</span>
+              <div className="flex-1 h-px bg-white/[0.06]" />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 py-3 px-4 rounded-2xl bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 text-xs font-semibold flex items-center justify-center space-x-2 transition-all active:scale-[0.98] disabled:opacity-50 shadow-md"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <span>Create Account</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-5 text-center space-y-2">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {/* Sign in link */}
+            <p className="text-center text-sm text-zinc-500">
               Already have an account?{' '}
-              <Link href="/login" className="text-zinc-900 dark:text-white font-semibold underline underline-offset-4 hover:opacity-80">
+              <Link
+                href="/login"
+                className="text-white font-semibold hover:text-zinc-300 transition-colors underline underline-offset-4 decoration-white/30"
+              >
                 Sign in
               </Link>
             </p>
           </div>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="text-center text-[11px] text-zinc-400 py-4">
-        Protected by encrypted Supabase authentication &bull; Zero keystroke logging
+        {/* Bottom footer */}
+        <div className="text-center text-[11px] text-zinc-700 py-4 px-6">
+          By creating an account, you agree to our{' '}
+          <span className="text-zinc-600 underline underline-offset-2 cursor-pointer hover:text-zinc-400 transition-colors">Terms</span>
+          {' '}and{' '}
+          <span className="text-zinc-600 underline underline-offset-2 cursor-pointer hover:text-zinc-400 transition-colors">Privacy Policy</span>
+        </div>
       </div>
     </div>
   );

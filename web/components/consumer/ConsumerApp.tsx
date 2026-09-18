@@ -428,9 +428,10 @@ export const ConsumerApp: React.FC = () => {
             ) : (
               <Link
                 href="/login"
-                className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all active:scale-95 shadow-sm"
+                className="group flex items-center space-x-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-white dark:bg-white text-black hover:bg-zinc-100 transition-all active:scale-95 shadow-md"
               >
-                Sign In
+                <span>Sign In</span>
+                <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </Link>
             )}
           </div>
