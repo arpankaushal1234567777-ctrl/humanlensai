@@ -1,0 +1,164 @@
+/* HumanLens AI Extension Isolated Styles */
+#humanlens-floating-pill {
+  position: fixed;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(12, 12, 14, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: #f4f4f5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+  user-select: none;
+}
+
+#humanlens-floating-pill:hover {
+  background: rgba(24, 24, 28, 0.98);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+#humanlens-floating-pill .hl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #10b981;
+}
+
+#humanlens-floating-pill.hl-warning .hl-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 10px #f59e0b;
+}
+
+#humanlens-floating-pill.hl-danger .hl-dot {
+  background: #f43f5e;
+  box-shadow: 0 0 12px #f43f5e;
+}
+
+/* Modal Overlay & Popover */
+#humanlens-popover {
+  position: fixed;
+  z-index: 2147483647;
+  width: 440px;
+  max-width: 90vw;
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  padding: 24px;
+  color: #f4f4f5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: hlFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes hlFadeIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hl-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.hl-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+}
+
+.hl-subtitle {
+  font-size: 12px;
+  color: #a1a1aa;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.hl-close-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a1a1aa;
+  border-radius: 9999px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.hl-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.hl-cooling-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.hl-timer-val {
+  font-family: monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hl-rewrites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hl-rewrite-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hl-rewrite-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: scale(1.01);
+}
+
+.hl-rw-style {
+  font-size: 11px;
+  font-weight: 600;
+  color: #10b981;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.hl-rw-text {
+  font-size: 13px;
+  color: #e4e4e7;
+  line-height: 1.45;
+}

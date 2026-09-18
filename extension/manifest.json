@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "HumanLens AI — Communication De-escalation",
+  "version": "1.0.0",
+  "description": "Real-time psychological firewall & de-escalation assistant across Gmail, Slack, and WhatsApp.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://humanlensai.vercel.app/*",
+    "https://humanlens-ml.onrender.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "HumanLens AI Settings"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://app.slack.com/*",
+        "https://web.whatsapp.com/*",
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ]
+}

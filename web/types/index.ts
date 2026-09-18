@@ -68,6 +68,12 @@ export interface MultimodalAnalysisResponse {
     status: 'active' | 'unavailable';
   };
   intervention: InterventionCard;
+  pythonMl?: {
+    active: boolean;
+    source?: string;
+    pipelineScores?: any;
+    fusionScore?: number;
+  };
 }
 
 export interface CheckinData {
