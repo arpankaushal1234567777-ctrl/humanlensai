@@ -13,12 +13,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen bg-[#09090b] text-[#f4f4f5] antialiased selection:bg-white selection:text-black">
+      <body className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased transition-colors duration-300">
         {/* Subtle Apple-like ambient lighting in background */}
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-white/[0.03] rounded-full blur-3xl"></div>
-          <div className="absolute top-1/3 -left-40 w-[400px] h-[400px] bg-sky-500/[0.02] rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 -right-40 w-[450px] h-[450px] bg-emerald-500/[0.02] rounded-full blur-3xl"></div>
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-sky-500/[0.03] dark:bg-white/[0.03] rounded-full blur-3xl"></div>
+          <div className="absolute top-1/3 -left-40 w-[400px] h-[400px] bg-sky-500/[0.03] dark:bg-sky-500/[0.02] rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 -right-40 w-[450px] h-[450px] bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] rounded-full blur-3xl"></div>
         </div>
         <div className="relative z-10 flex flex-col min-h-screen">
           {children}

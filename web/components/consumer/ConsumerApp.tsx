@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { 
   Send, Check, RefreshCw, X, ArrowUpRight, Plus, 
   MessageSquare, Activity, Sparkles, Settings, 
-  LogOut, ShieldCheck, Download, ExternalLink, Globe, ArrowDown
+  LogOut, ShieldCheck, Download, ExternalLink, Globe, ArrowDown,
+  Sun, Moon
 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { MultimodalAnalysisResponse, RewriteOption, BehaviorSummary } from '../../types';
@@ -38,6 +39,7 @@ const CONFLICT_PRESETS = [
 ];
 
 export const ConsumerApp: React.FC = () => {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [activeSection, setActiveSection] = useState<'overview' | 'trends'>('overview');
   const [draft, setDraft] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -63,6 +65,28 @@ export const ConsumerApp: React.FC = () => {
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const sandboxRef = useRef<HTMLDivElement | null>(null);
+
+  // Theme synchronization
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('hl_theme') as 'dark' | 'light' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.remove('dark', 'light');
+      document.documentElement.classList.add(savedTheme);
+    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      setTheme('light');
+      document.documentElement.classList.remove('dark', 'light');
+      document.documentElement.classList.add('light');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('hl_theme', next);
+    document.documentElement.classList.remove('dark', 'light');
+    document.documentElement.classList.add(next);
+  };
 
   // User session tracking
   useEffect(() => {
@@ -205,80 +229,93 @@ export const ConsumerApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#000000] text-[#f5f5f7] selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
       {/* 1. MINIMAL APPLE NAVBAR */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#000000]/80 backdrop-blur-xl border-b border-white/[0.08]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-black/[0.06] dark:border-white/[0.08] transition-colors duration-300">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           {/* Brand */}
           <Link href="/" className="flex items-center space-x-2 group">
-            <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-black font-bold text-[10px] tracking-tight">
+            <div className="w-5 h-5 rounded-full bg-black dark:bg-white flex items-center justify-center text-white dark:text-black font-bold text-[10px] tracking-tight transition-colors">
               HL
             </div>
-            <span className="text-[14px] font-medium tracking-tight text-white group-hover:text-zinc-300 transition-colors">
+            <span className="text-[14px] font-semibold tracking-tight text-zinc-900 dark:text-white group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors">
               HumanLens
             </span>
           </Link>
 
           {/* Clean Text Navigation */}
-          <nav className="hidden md:flex items-center space-x-8 text-[13px] text-zinc-400">
+          <nav className="hidden md:flex items-center space-x-8 text-[13px] text-zinc-500 dark:text-zinc-400 font-medium">
             <button
               onClick={() => { setActiveSection('overview'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              className={`hover:text-white transition-colors ${activeSection === 'overview' ? 'text-white font-medium' : ''}`}
+              className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${activeSection === 'overview' ? 'text-zinc-900 dark:text-white font-semibold' : ''}`}
             >
               Overview
             </button>
             <button
               onClick={scrollToSandbox}
-              className="hover:text-white transition-colors"
+              className="hover:text-zinc-900 dark:hover:text-white transition-colors"
             >
               Sandbox
             </button>
             <button
               onClick={() => { setActiveSection('trends'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              className={`hover:text-white transition-colors ${activeSection === 'trends' ? 'text-white font-medium' : ''}`}
+              className={`hover:text-zinc-900 dark:hover:text-white transition-colors ${activeSection === 'trends' ? 'text-zinc-900 dark:text-white font-semibold' : ''}`}
             >
               Health Trends
             </button>
             <Link
               href="/research"
-              className="hover:text-white transition-colors flex items-center space-x-1"
+              className="hover:text-zinc-900 dark:hover:text-white transition-colors flex items-center space-x-1"
             >
               <span>Research</span>
-              <ArrowUpRight className="w-3 h-3 text-zinc-500" />
+              <ArrowUpRight className="w-3 h-3 text-zinc-400" />
             </Link>
           </nav>
 
-          {/* Right Action */}
-          <div className="flex items-center space-x-4">
+          {/* Right Controls: Theme Toggle, Extension, Auth */}
+          <div className="flex items-center space-x-3">
+            {/* Dark / Light Mode Switcher */}
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              className="p-1.5 rounded-full text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white bg-black/[0.04] dark:bg-white/[0.04] hover:bg-black/[0.08] dark:hover:bg-white/[0.08] border border-black/[0.06] dark:border-white/[0.08] transition-all active:scale-95"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <Moon className="w-3.5 h-3.5 text-zinc-700" />
+              )}
+            </button>
+
             <button
               onClick={() => setIsExtensionModalOpen(true)}
-              className="text-[12px] text-zinc-300 hover:text-white transition-colors hidden sm:inline"
+              className="text-[12px] text-zinc-600 dark:text-zinc-300 hover:text-black dark:hover:text-white transition-colors hidden sm:inline font-medium"
             >
-              Chrome Extension
+              Extension
             </button>
 
             {currentUser ? (
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center space-x-2 py-1 px-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.1] text-xs transition-all"
+                  className="flex items-center space-x-2 py-1 px-2.5 rounded-full bg-black/[0.05] dark:bg-white/[0.08] hover:bg-black/[0.08] dark:hover:bg-white/[0.12] border border-black/[0.08] dark:border-white/[0.1] text-xs transition-all"
                 >
-                  <div className="w-4 h-4 rounded-full bg-white text-black font-bold text-[9px] flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full bg-black dark:bg-white text-white dark:text-black font-bold text-[9px] flex items-center justify-center">
                     {(currentUser.email?.[0] || 'U').toUpperCase()}
                   </div>
-                  <span className="max-w-[80px] truncate text-zinc-200">
+                  <span className="max-w-[80px] truncate text-zinc-800 dark:text-zinc-200">
                     {currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0]}
                   </span>
                 </button>
 
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-44 py-1.5 bg-[#121214] border border-white/[0.12] rounded-2xl shadow-2xl z-50 text-xs">
-                    <div className="px-3 py-1 text-zinc-400 truncate border-b border-white/[0.06] mb-1">
+                  <div className="absolute right-0 mt-2 w-44 py-1.5 bg-white dark:bg-[#121214] border border-black/[0.08] dark:border-white/[0.12] rounded-2xl shadow-xl dark:shadow-2xl z-50 text-xs">
+                    <div className="px-3 py-1 text-zinc-500 dark:text-zinc-400 truncate border-b border-black/[0.06] dark:border-white/[0.06] mb-1">
                       {currentUser.email}
                     </div>
                     <button
                       onClick={handleSignOut}
-                      className="w-full px-3 py-1.5 text-left text-rose-400 hover:bg-white/[0.04] flex items-center space-x-2"
+                      className="w-full px-3 py-1.5 text-left text-rose-500 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] flex items-center space-x-2 transition-all"
                     >
                       <LogOut className="w-3 h-3" />
                       <span>Sign Out</span>
@@ -289,7 +326,7 @@ export const ConsumerApp: React.FC = () => {
             ) : (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium bg-white text-black hover:bg-zinc-200 transition-all active:scale-95"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all active:scale-95 shadow-sm"
               >
                 Sign In
               </button>
@@ -303,16 +340,16 @@ export const ConsumerApp: React.FC = () => {
         <main className="pt-28 sm:pt-36">
           {/* HERO SECTION */}
           <section className="max-w-4xl mx-auto px-6 text-center space-y-6">
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs text-zinc-400 font-mono tracking-tight">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.08] text-xs text-zinc-600 dark:text-zinc-400 font-mono tracking-tight">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               <span>HumanLens 1.0 • Communication Intelligence</span>
             </div>
 
-            <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight text-white leading-[1.08]">
+            <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight text-zinc-900 dark:text-white leading-[1.08]">
               Never send a message<br />you&apos;ll regret.
             </h1>
 
-            <p className="text-lg sm:text-xl text-[#86868b] max-w-2xl mx-auto font-normal leading-relaxed">
+            <p className="text-lg sm:text-xl text-zinc-600 dark:text-[#86868b] max-w-2xl mx-auto font-normal leading-relaxed">
               A real-time psychological firewall for high-stakes conversations across Gmail, Slack, and WhatsApp.
             </p>
 
@@ -320,33 +357,33 @@ export const ConsumerApp: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => setIsExtensionModalOpen(true)}
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-white hover:bg-zinc-200 text-black text-[13px] font-semibold flex items-center justify-center space-x-2 transition-all shadow-xl active:scale-[0.98]"
+                className="w-full sm:w-auto px-6 py-3 rounded-full bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black text-[13px] font-semibold flex items-center justify-center space-x-2 transition-all shadow-xl active:scale-[0.98]"
               >
-                <Globe className="w-4 h-4 text-black" />
+                <Globe className="w-4 h-4 text-white dark:text-black" />
                 <span>Add to Chrome &mdash; Free</span>
               </button>
 
               <button
                 onClick={scrollToSandbox}
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-white/[0.04] hover:bg-white/[0.08] text-white text-[13px] font-medium border border-white/[0.1] flex items-center justify-center space-x-2 transition-all"
+                className="w-full sm:w-auto px-6 py-3 rounded-full bg-black/[0.04] dark:bg-white/[0.04] hover:bg-black/[0.08] dark:hover:bg-white/[0.08] text-zinc-900 dark:text-white text-[13px] font-medium border border-black/[0.08] dark:border-white/[0.1] flex items-center justify-center space-x-2 transition-all"
               >
                 <span>Try Interactive Sandbox</span>
-                <ArrowDown className="w-3.5 h-3.5 text-zinc-400" />
+                <ArrowDown className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
               </button>
             </div>
 
-            {/* VISUAL PRODUCT SHOWCASE (MOCKUP OF EXTENSION IN ACTION) */}
+            {/* VISUAL PRODUCT SHOWCASE */}
             <div className="pt-12 sm:pt-16 max-w-3xl mx-auto">
-              <div className="rounded-3xl bg-[#0d0d0f] border border-white/[0.1] p-6 sm:p-8 text-left shadow-2xl relative overflow-hidden">
+              <div className="rounded-3xl bg-white dark:bg-[#0d0d0f] border border-black/[0.08] dark:border-white/[0.1] p-6 sm:p-8 text-left shadow-lg dark:shadow-2xl relative overflow-hidden transition-all duration-300">
                 {/* Mock compose header */}
-                <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] text-xs text-zinc-400">
+                <div className="flex items-center justify-between pb-4 border-b border-black/[0.06] dark:border-white/[0.06] text-xs text-zinc-500 dark:text-zinc-400">
                   <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-700"></span>
-                    <span className="text-zinc-400 font-mono ml-2">Slack &bull; #engineering-leads</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-400 dark:bg-zinc-700"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-400 dark:bg-zinc-700"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-zinc-400 dark:bg-zinc-700"></span>
+                    <span className="font-mono ml-2">Slack &bull; #engineering-leads</span>
                   </div>
-                  <span className="text-[11px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                     Protected by HumanLens
                   </span>
                 </div>
@@ -354,29 +391,29 @@ export const ConsumerApp: React.FC = () => {
                 {/* Mock message before/after */}
                 <div className="py-6 space-y-4">
                   <div className="space-y-1">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-rose-400 flex items-center space-x-1.5">
-                      <span>Original Impulsive Draft (Intercepted)</span>
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                      Original Impulsive Draft (Intercepted)
                     </div>
-                    <p className="text-sm sm:text-base text-zinc-400 line-through decoration-rose-500/60 font-mono leading-relaxed">
+                    <p className="text-sm sm:text-base text-zinc-500 dark:text-zinc-400 line-through decoration-rose-500/60 font-mono leading-relaxed">
                       &ldquo;You completely screwed up our deployment and ignored everything I told you yesterday.&rdquo;
                     </p>
                   </div>
 
                   {/* Transformed rewrite */}
-                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-1.5">
+                  <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.08] space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-emerald-400 font-semibold text-[11px] tracking-tight">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px] tracking-tight">
                         &bull; Recommended De-escalation (Preserves Intent &amp; Accountability)
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">1-Tap Replaced</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">1-Tap Replaced</span>
                     </div>
-                    <p className="text-sm sm:text-base text-zinc-100 font-normal leading-relaxed">
+                    <p className="text-sm sm:text-base text-zinc-900 dark:text-zinc-100 font-normal leading-relaxed">
                       &ldquo;I have serious concerns about the stability of yesterday&apos;s rollout. Let&apos;s walk through what broke so we can prevent this on the next sprint.&rdquo;
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-2 flex items-center justify-between text-[11px] text-zinc-400">
+                <div className="pt-2 flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
                   <span>Stanford Behavioral Science &bull; Gottman De-escalation Protocol</span>
                   <span className="font-mono">Tension: 0.88 &rarr; 0.05</span>
                 </div>
@@ -387,10 +424,10 @@ export const ConsumerApp: React.FC = () => {
           {/* 3. INTERACTIVE SANDBOX SECTION */}
           <section ref={sandboxRef} id="sandbox" className="pt-32 pb-24 max-w-3xl mx-auto px-6">
             <div className="text-center space-y-2 mb-8">
-              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white">
                 Interactive Sandbox
               </h2>
-              <p className="text-sm text-zinc-400 max-w-md mx-auto">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-md mx-auto">
                 Test any sensitive email, Slack reply, or difficult message before sending.
               </p>
             </div>
@@ -401,7 +438,7 @@ export const ConsumerApp: React.FC = () => {
                 <button
                   key={p.id}
                   onClick={() => handleSelectPreset(p.text)}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 hover:text-white border border-white/[0.08] transition-all active:scale-95"
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-black/[0.04] dark:bg-white/[0.03] hover:bg-black/[0.08] dark:hover:bg-white/[0.08] text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white border border-black/[0.06] dark:border-white/[0.08] transition-all active:scale-95"
                 >
                   {p.tag}
                 </button>
@@ -409,16 +446,16 @@ export const ConsumerApp: React.FC = () => {
             </div>
 
             {/* Focused Composer Canvas */}
-            <div className="rounded-3xl bg-[#09090b] border border-white/[0.1] p-6 sm:p-8 shadow-2xl transition-all relative">
-              <div className="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4 text-xs">
-                <span className="text-zinc-400 font-medium">
+            <div className="rounded-3xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.1] p-6 sm:p-8 shadow-md dark:shadow-2xl transition-all relative">
+              <div className="flex items-center justify-between pb-4 border-b border-black/[0.06] dark:border-white/[0.06] mb-4 text-xs">
+                <span className="text-zinc-500 dark:text-zinc-400 font-medium">
                   Draft Canvas
                 </span>
 
                 {analysis && (
                   <div className="flex items-center space-x-2">
-                    <span className={`w-2 h-2 rounded-full ${analysis.intervention.triggered ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                    <span className="text-zinc-300 font-medium">
+                    <span className={`w-2 h-2 rounded-full ${analysis.intervention.triggered ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+                    <span className="text-zinc-800 dark:text-zinc-300 font-medium">
                       {analysis.perception?.toneTag || (analysis.intervention.triggered ? 'Needs Reflection' : 'Clear & Constructive')}
                     </span>
                   </div>
@@ -436,11 +473,11 @@ export const ConsumerApp: React.FC = () => {
                 }}
                 placeholder="Draft a difficult message to test its tone..."
                 rows={5}
-                className="w-full bg-transparent text-white placeholder-zinc-600 text-base sm:text-lg focus:outline-none resize-none leading-relaxed tracking-tight"
+                className="w-full bg-transparent text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 text-base sm:text-lg focus:outline-none resize-none leading-relaxed tracking-tight"
               />
 
-              <div className="flex items-center justify-between pt-4 border-t border-white/[0.06] mt-4">
-                <span className="text-xs text-zinc-400 font-mono">
+              <div className="flex items-center justify-between pt-4 border-t border-black/[0.06] dark:border-white/[0.06] mt-4">
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">
                   {draft.length} chars
                 </span>
 
@@ -448,7 +485,9 @@ export const ConsumerApp: React.FC = () => {
                   onClick={handleSend}
                   disabled={!draft.trim() || isAnalyzing}
                   className={`px-5 py-2 rounded-full text-xs font-semibold flex items-center space-x-1.5 transition-all active:scale-95 disabled:opacity-30 ${
-                    sentSuccess ? 'bg-emerald-400 text-black' : 'bg-white text-black hover:bg-zinc-200'
+                    sentSuccess 
+                      ? 'bg-emerald-500 text-white' 
+                      : 'bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200'
                   }`}
                 >
                   {isAnalyzing ? (
@@ -472,53 +511,50 @@ export const ConsumerApp: React.FC = () => {
             </div>
           </section>
 
-          {/* 4. APPLE BENTO GRID: 3 CORE PILLARS */}
-          <section className="py-24 max-w-5xl mx-auto px-6 border-t border-white/[0.06]">
+          {/* 4. APPLE BENTO GRID */}
+          <section className="py-24 max-w-5xl mx-auto px-6 border-t border-black/[0.06] dark:border-white/[0.06]">
             <div className="text-center space-y-2 mb-16">
-              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
+              <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-900 dark:text-white">
                 Engineered for clarity under pressure.
               </h2>
-              <p className="text-sm text-zinc-400 max-w-lg mx-auto">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 max-w-lg mx-auto">
                 HumanLens pairs clinical conflict research with real-time browser intelligence.
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card 1 */}
-              <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-8 space-y-4 hover:border-white/20 transition-all">
-                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
-                  <Globe className="w-5 h-5 text-sky-400" />
+              <div className="rounded-3xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-8 space-y-4 hover:border-black/20 dark:hover:border-white/20 transition-all shadow-sm dark:shadow-none">
+                <div className="w-10 h-10 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/[0.08] flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-sky-500 dark:text-sky-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-white tracking-tight">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
                   Seamless Keyboard Interception
                 </h3>
-                <p className="text-xs text-zinc-400 leading-relaxed">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   No copy-pasting required. A discreet floating pill appears beside compose boxes in Gmail, Slack Web, and WhatsApp, defusing messages before you send.
                 </p>
               </div>
 
-              {/* Card 2 */}
-              <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-8 space-y-4 hover:border-white/20 transition-all">
-                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
-                  <Activity className="w-5 h-5 text-emerald-400" />
+              <div className="rounded-3xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-8 space-y-4 hover:border-black/20 dark:hover:border-white/20 transition-all shadow-sm dark:shadow-none">
+                <div className="w-10 h-10 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/[0.08] flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-white tracking-tight">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
                   Autonomic Regulation
                 </h3>
-                <p className="text-xs text-zinc-400 leading-relaxed">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Grounded in Stanford neuroscience, the 20-second cooling pause activates physiological sigh downregulation to suppress autonomic fight-or-flight reactivity.
                 </p>
               </div>
 
-              {/* Card 3 */}
-              <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-8 space-y-4 hover:border-white/20 transition-all">
-                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
-                  <ShieldCheck className="w-5 h-5 text-white" />
+              <div className="rounded-3xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-8 space-y-4 hover:border-black/20 dark:hover:border-white/20 transition-all shadow-sm dark:shadow-none">
+                <div className="w-10 h-10 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/[0.08] flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-zinc-900 dark:text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-white tracking-tight">
+                <h3 className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
                   Zero-Knowledge Privacy
                 </h3>
-                <p className="text-xs text-zinc-400 leading-relaxed">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   Biometrics and facial action units are analyzed purely inside your local browser memory. Zero raw video, audio, or keystrokes are ever stored.
                 </p>
               </div>
@@ -526,21 +562,21 @@ export const ConsumerApp: React.FC = () => {
           </section>
         </main>
       ) : (
-        /* TRENDS VIEW (APPLE HEALTH STYLE) */
+        /* TRENDS VIEW */
         <main className="pt-28 sm:pt-36 max-w-4xl mx-auto px-6 space-y-8 animate-fade-in pb-24">
-          <div className="flex items-center justify-between pb-6 border-b border-white/[0.06]">
+          <div className="flex items-center justify-between pb-6 border-b border-black/[0.06] dark:border-white/[0.06]">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-white">
+              <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white">
                 Behavioral Health Trends
               </h1>
-              <p className="text-xs text-zinc-400 mt-1">
+              <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
                 How biological strain and sleep debt correlate with your communication friction.
               </p>
             </div>
 
             <button
               onClick={() => setIsCheckinOpen(true)}
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-black hover:bg-zinc-200 transition-all active:scale-95"
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all active:scale-95 shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Log Today</span>
@@ -549,46 +585,46 @@ export const ConsumerApp: React.FC = () => {
 
           {/* Stat Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
-              <span className="text-[11px] font-mono uppercase text-zinc-400">Sleep Average</span>
-              <div className="text-2xl font-semibold text-white">
-                {behaviorData?.avgSleep || 5.7}<span className="text-xs font-normal text-zinc-400 ml-1">hrs</span>
+            <div className="rounded-2xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-4 space-y-1 shadow-sm dark:shadow-none">
+              <span className="text-[11px] font-mono uppercase text-zinc-500">Sleep Average</span>
+              <div className="text-2xl font-semibold text-zinc-900 dark:text-white">
+                {behaviorData?.avgSleep || 5.7}<span className="text-xs font-normal text-zinc-500 ml-1">hrs</span>
               </div>
-              <p className="text-[11px] text-zinc-400">-1.3h under personal target</p>
+              <p className="text-[11px] text-zinc-500">-1.3h under personal target</p>
             </div>
 
-            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
-              <span className="text-[11px] font-mono uppercase text-zinc-400">Stress Level</span>
-              <div className="text-2xl font-semibold text-white">
-                {behaviorData?.avgStress || 6.9}<span className="text-xs font-normal text-zinc-400 ml-1">/10</span>
+            <div className="rounded-2xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-4 space-y-1 shadow-sm dark:shadow-none">
+              <span className="text-[11px] font-mono uppercase text-zinc-500">Stress Level</span>
+              <div className="text-2xl font-semibold text-zinc-900 dark:text-white">
+                {behaviorData?.avgStress || 6.9}<span className="text-xs font-normal text-zinc-500 ml-1">/10</span>
               </div>
-              <p className="text-[11px] text-zinc-400">Peak observed mid-week</p>
+              <p className="text-[11px] text-zinc-500">Peak observed mid-week</p>
             </div>
 
-            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
-              <span className="text-[11px] font-mono uppercase text-zinc-400">Daily Affect</span>
-              <div className="text-2xl font-semibold text-white">
-                {behaviorData?.avgMood || 2.6}<span className="text-xs font-normal text-zinc-400 ml-1">/5</span>
+            <div className="rounded-2xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-4 space-y-1 shadow-sm dark:shadow-none">
+              <span className="text-[11px] font-mono uppercase text-zinc-500">Daily Affect</span>
+              <div className="text-2xl font-semibold text-zinc-900 dark:text-white">
+                {behaviorData?.avgMood || 2.6}<span className="text-xs font-normal text-zinc-500 ml-1">/5</span>
               </div>
-              <p className="text-[11px] text-zinc-400">Moderate fluctuation</p>
+              <p className="text-[11px] text-zinc-500">Moderate fluctuation</p>
             </div>
 
-            <div className="rounded-2xl bg-[#09090b] border border-white/[0.08] p-4 space-y-1">
-              <span className="text-[11px] font-mono uppercase text-zinc-400">Impulse Risk</span>
-              <div className="text-2xl font-semibold text-white">
+            <div className="rounded-2xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-4 space-y-1 shadow-sm dark:shadow-none">
+              <span className="text-[11px] font-mono uppercase text-zinc-500">Impulse Risk</span>
+              <div className="text-2xl font-semibold text-zinc-900 dark:text-white">
                 Elevated
               </div>
-              <p className="text-[11px] text-zinc-400">Higher friction probability</p>
+              <p className="text-[11px] text-zinc-500">Higher friction probability</p>
             </div>
           </div>
 
           {/* Area Chart */}
-          <div className="rounded-3xl bg-[#09090b] border border-white/[0.08] p-6 space-y-4">
+          <div className="rounded-3xl bg-white dark:bg-[#09090b] border border-black/[0.08] dark:border-white/[0.08] p-6 space-y-4 shadow-sm dark:shadow-none">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-white">Stress &amp; Sleep Correlation (7 Days)</span>
-              <div className="flex items-center space-x-4 text-[11px] text-zinc-400 font-mono">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-white"></span> Stress</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-zinc-500"></span> Sleep</span>
+              <span className="font-semibold text-zinc-900 dark:text-white">Stress &amp; Sleep Correlation (7 Days)</span>
+              <div className="flex items-center space-x-4 text-[11px] text-zinc-500 font-mono">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-black dark:bg-white"></span> Stress</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-0.5 bg-zinc-400 dark:bg-zinc-500"></span> Sleep</span>
               </div>
             </div>
 
@@ -598,32 +634,32 @@ export const ConsumerApp: React.FC = () => {
                   <AreaChart data={behaviorData.trends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="cStress" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ffffff" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#000000" stopOpacity={theme === 'dark' ? 0.25 : 0.08} />
+                        <stop offset="95%" stopColor="#000000" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="cSleep" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#71717a" stopOpacity={0.15} />
                         <stop offset="95%" stopColor="#71717a" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="2 2" stroke="rgba(255,255,255,0.04)" />
-                    <XAxis dataKey="date" stroke="#52525b" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#52525b" fontSize={11} tickLine={false} domain={[0, 10]} />
+                    <CartesianGrid strokeDasharray="2 2" stroke={theme === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'} />
+                    <XAxis dataKey="date" stroke="#71717a" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#71717a" fontSize={11} tickLine={false} domain={[0, 10]} />
                     <Tooltip
                       content={({ active, payload, label }: any) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="p-2.5 rounded-xl bg-[#18181b] border border-white/20 text-xs space-y-1 shadow-2xl">
-                              <div className="font-medium text-white">{label}</div>
-                              <div className="text-zinc-300 font-mono">Stress: {payload[0]?.value} / 10</div>
-                              <div className="text-zinc-400 font-mono">Sleep: {payload[1]?.value} hrs</div>
+                            <div className="p-2.5 rounded-xl bg-white dark:bg-[#18181b] border border-black/[0.1] dark:border-white/20 text-xs space-y-1 shadow-xl">
+                              <div className="font-semibold text-zinc-900 dark:text-white">{label}</div>
+                              <div className="text-zinc-600 dark:text-zinc-300 font-mono">Stress: {payload[0]?.value} / 10</div>
+                              <div className="text-zinc-500 dark:text-zinc-400 font-mono">Sleep: {payload[1]?.value} hrs</div>
                             </div>
                           );
                         }
                         return null;
                       }}
                     />
-                    <Area type="monotone" dataKey="stress" stroke="#ffffff" strokeWidth={1.5} fillOpacity={1} fill="url(#cStress)" />
+                    <Area type="monotone" dataKey="stress" stroke={theme === 'dark' ? '#ffffff' : '#000000'} strokeWidth={1.5} fillOpacity={1} fill="url(#cStress)" />
                     <Area type="monotone" dataKey="sleep" stroke="#71717a" strokeWidth={1.5} strokeDasharray="3 3" fillOpacity={1} fill="url(#cSleep)" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -633,44 +669,44 @@ export const ConsumerApp: React.FC = () => {
         </main>
       )}
 
-      {/* 5. MINIMAL DE-ESCALATION OVERLAY */}
+      {/* 5. DE-ESCALATION OVERLAY */}
       {showIntervention && analysis?.intervention && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
-          <div className="w-full max-w-xl rounded-3xl bg-[#0d0d0f] p-7 sm:p-8 space-y-6 max-h-[88vh] overflow-y-auto border border-white/[0.14] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-2xl animate-fade-in">
+          <div className="w-full max-w-xl rounded-3xl bg-white dark:bg-[#0d0d0f] p-7 sm:p-8 space-y-6 max-h-[88vh] overflow-y-auto border border-black/[0.08] dark:border-white/[0.14] shadow-2xl transition-all">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <span className="text-[11px] font-mono tracking-wider uppercase text-zinc-400">
+                <span className="text-[11px] font-mono tracking-wider uppercase text-zinc-500 dark:text-zinc-400">
                   Communication Buffer
                 </span>
-                <h2 className="text-2xl font-semibold tracking-tight text-white">
+                <h2 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">
                   Pause &amp; Reflect
                 </h2>
-                <p className="text-xs text-zinc-300 leading-relaxed max-w-md pt-0.5">
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed max-w-md pt-0.5">
                   {analysis.perception?.recipientImpact}
                 </p>
               </div>
 
               <button
                 onClick={() => setShowIntervention(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white"
+                className="p-1 rounded-full text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* 20s Cooling Pause */}
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="relative w-12 h-12 rounded-full border border-white/20 flex items-center justify-center">
-                  <span className="text-base font-mono font-medium text-white">
+                <div className="relative w-12 h-12 rounded-full border border-black/20 dark:border-white/20 flex items-center justify-center">
+                  <span className="text-base font-mono font-medium text-zinc-900 dark:text-white">
                     {timerSeconds}s
                   </span>
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-white">
+                  <div className="text-xs font-semibold text-zinc-900 dark:text-white">
                     {timerSeconds > 0 ? getBreathingPhase() : 'Pause complete'}
                   </div>
-                  <div className="text-[11px] text-zinc-400 font-mono">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
                     20s Cooling Pause &bull; Box Breathing
                   </div>
                 </div>
@@ -678,7 +714,7 @@ export const ConsumerApp: React.FC = () => {
 
               <button
                 onClick={() => setTimerRunning(!timerRunning)}
-                className="px-3 py-1 rounded-full text-[11px] font-medium text-zinc-300 hover:text-white bg-white/[0.05] border border-white/10"
+                className="px-3 py-1 rounded-full text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.08] dark:border-white/10"
               >
                 {timerRunning ? 'Pause' : 'Resume'}
               </button>
@@ -686,7 +722,7 @@ export const ConsumerApp: React.FC = () => {
 
             {/* Rewrites */}
             <div className="space-y-2">
-              <span className="text-[11px] font-mono tracking-wider uppercase text-zinc-400">
+              <span className="text-[11px] font-mono tracking-wider uppercase text-zinc-500 dark:text-zinc-400">
                 Constructive Alternatives (1-Tap Replace)
               </span>
 
@@ -694,15 +730,15 @@ export const ConsumerApp: React.FC = () => {
                 <div
                   key={i}
                   onClick={() => applyRewrite(rw)}
-                  className="p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer group"
+                  className="p-3.5 rounded-2xl bg-black/[0.02] dark:bg-white/[0.03] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] border border-black/[0.06] dark:border-white/[0.08] hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer group"
                 >
-                  <div className="flex items-center justify-between text-xs font-medium text-zinc-300 mb-1">
+                  <div className="flex items-center justify-between text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                     <span>{rw.style}</span>
-                    <span className="text-[11px] text-zinc-400 group-hover:text-white flex items-center gap-0.5">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 group-hover:text-black dark:group-hover:text-white flex items-center gap-0.5">
                       Apply <ArrowUpRight className="w-3 h-3" />
                     </span>
                   </div>
-                  <p className="text-sm text-zinc-200 leading-relaxed font-normal">
+                  <p className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed font-normal">
                     &ldquo;{rw.text}&rdquo;
                   </p>
                 </div>
@@ -710,8 +746,8 @@ export const ConsumerApp: React.FC = () => {
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center justify-between pt-2 border-t border-white/[0.08] text-xs">
-              <span className="text-[11px] text-zinc-400">
+            <div className="flex items-center justify-between pt-2 border-t border-black/[0.06] dark:border-white/[0.08] text-xs">
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 You maintain complete autonomy to send your original.
               </span>
 
@@ -727,13 +763,13 @@ export const ConsumerApp: React.FC = () => {
                       setSentSuccess(false);
                     }, 1800);
                   }}
-                  className="px-3 py-1.5 text-zinc-400 hover:text-white transition-colors"
+                  className="px-3 py-1.5 text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors"
                 >
                   Send Original
                 </button>
                 <button
                   onClick={() => setShowIntervention(false)}
-                  className="px-4 py-1.5 rounded-full font-semibold bg-white text-black hover:bg-zinc-200 transition-all"
+                  className="px-4 py-1.5 rounded-full font-semibold bg-black dark:bg-white text-white dark:text-black hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
                 >
                   Edit
                 </button>
@@ -745,49 +781,49 @@ export const ConsumerApp: React.FC = () => {
 
       {/* 6. CHROME EXTENSION MODAL */}
       {isExtensionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-[#0d0d0f] p-7 space-y-5 border border-white/[0.12] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-2xl animate-fade-in">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0d0d0f] p-7 space-y-5 border border-black/[0.08] dark:border-white/[0.12] shadow-2xl">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-white">
-                  <Globe className="w-5 h-5 text-sky-400" />
+                <div className="w-10 h-10 rounded-2xl bg-black/[0.04] dark:bg-white/[0.05] border border-black/[0.06] dark:border-white/[0.08] flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-sky-500 dark:text-sky-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-white">HumanLens for Chrome</h3>
-                  <p className="text-xs text-zinc-400">Real-time typing de-escalation</p>
+                  <h3 className="text-base font-semibold text-zinc-900 dark:text-white">HumanLens for Chrome</h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Real-time typing de-escalation</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsExtensionModalOpen(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white"
+                className="p-1 rounded-full text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-2.5 text-xs text-zinc-300 leading-relaxed">
-              <div className="font-semibold text-white">Setup in 3 Steps:</div>
-              <ol className="list-decimal list-inside space-y-1.5 text-zinc-400">
-                <li>Open Chrome: <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono">chrome://extensions</code></li>
+            <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.06] dark:border-white/[0.06] space-y-2.5 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              <div className="font-semibold text-zinc-900 dark:text-white">Setup in 3 Steps:</div>
+              <ol className="list-decimal list-inside space-y-1.5 text-zinc-600 dark:text-zinc-400">
+                <li>Open Chrome: <code className="px-1.5 py-0.5 rounded bg-black/[0.06] dark:bg-white/[0.08] text-zinc-900 dark:text-white font-mono">chrome://extensions</code></li>
                 <li>Turn on <strong>Developer Mode</strong> (top-right).</li>
-                <li>Click <strong>Load unpacked</strong> and select the <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono">extension</code> folder from your project.</li>
+                <li>Click <strong>Load unpacked</strong> and select the <code className="px-1.5 py-0.5 rounded bg-black/[0.06] dark:bg-white/[0.08] text-zinc-900 dark:text-white font-mono">extension</code> folder from your project.</li>
               </ol>
             </div>
 
-            <div className="space-y-1.5 text-xs text-zinc-400">
+            <div className="space-y-1.5 text-xs text-zinc-600 dark:text-zinc-400">
               <div className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-400" />
+                <Check className="w-4 h-4 text-emerald-500" />
                 <span>Active across Gmail, Slack Web &amp; WhatsApp Web</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-emerald-400" />
+                <Check className="w-4 h-4 text-emerald-500" />
                 <span>Pre-wired to your live cloud API</span>
               </div>
             </div>
 
             <button
               onClick={() => setIsExtensionModalOpen(false)}
-              className="w-full py-2.5 rounded-full bg-white text-black font-semibold text-xs hover:bg-zinc-200 transition-all"
+              className="w-full py-2.5 rounded-full bg-black dark:bg-white text-white dark:text-black font-semibold text-xs hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
             >
               Done
             </button>
@@ -818,7 +854,7 @@ export const ConsumerApp: React.FC = () => {
       />
 
       {/* 7. APPLE MINIMAL FOOTER */}
-      <footer className="mt-32 border-t border-white/[0.06] max-w-5xl mx-auto w-full px-6 py-10 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-400 gap-4">
+      <footer className="mt-32 border-t border-black/[0.06] dark:border-white/[0.06] max-w-5xl mx-auto w-full px-6 py-10 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 gap-4 transition-colors">
         <div className="flex items-center space-x-3">
           <span>&copy; {new Date().getFullYear()} HumanLens AI</span>
           <span>&bull;</span>
@@ -827,7 +863,7 @@ export const ConsumerApp: React.FC = () => {
 
         <Link
           href="/research"
-          className="flex items-center space-x-1 text-zinc-400 hover:text-white transition-colors font-mono text-[11px]"
+          className="flex items-center space-x-1 text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors font-mono text-[11px]"
         >
           <span>Research &amp; ML Evaluation Studio</span>
           <ArrowUpRight className="w-3 h-3" />

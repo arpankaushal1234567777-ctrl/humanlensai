@@ -13,6 +13,17 @@
   --text-tertiary: #52525b;
 }
 
+html.light {
+  --bg-primary: #fbfbfd;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f5f5f7;
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-active: rgba(0, 0, 0, 0.16);
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #86868b;
+}
+
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
@@ -20,6 +31,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.011em;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Apple-grade frosted glass */
@@ -30,12 +42,28 @@ body {
   border: 1px solid var(--border-subtle);
 }
 
+html.light .apple-panel {
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
 .apple-panel-elevated {
   background-color: rgba(24, 24, 28, 0.85);
   backdrop-filter: blur(40px) saturate(200%);
   -webkit-backdrop-filter: blur(40px) saturate(200%);
   border: 1px solid var(--border-active);
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.7);
+}
+
+html.light .apple-panel-elevated {
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid var(--border-active);
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.12);
 }
 
 .apple-input {
