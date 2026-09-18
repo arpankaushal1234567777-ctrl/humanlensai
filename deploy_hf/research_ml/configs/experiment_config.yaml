@@ -1,0 +1,139 @@
+# HumanLens AI — Central Experiment & Pipeline Configuration
+# Single Source of Truth for Member 3 (Research & ML Lead)
+
+project:
+  name: "HumanLens AI"
+  version: "1.1.0"
+  stage: "Production & Validation"
+  random_seed: 42
+
+# 1. Text Layer Configuration
+text:
+  primary_toxicity_model: "textdetox/bert-multilingual-toxicity-classifier"
+  comparison_toxicity_model: "textdetox/xlmr-large-toxicity-classifier-v2"
+  fast_toxicity_model: "models/text/toxicity_model.pkl"
+  fast_vectorizer: "models/text/vectorizer.pkl"
+  threat_model: "models/text/threat_model.pkl"
+  insult_model: "models/text/insult_model.pkl"
+  emotion_model: "models/emotion_logistic_regression.pkl"
+  emotion_vectorizer: "models/emotion_tfidf_vectorizer.pkl"
+  max_sequence_length: 256
+  device: "cpu"
+  batch_size: 16
+
+  # Aggression weights (Interpretable Proxy Baseline)
+  aggression_weights:
+    threat: 0.45
+    insult: 0.35
+    toxicity: 0.20
+  
+  aggression_thresholds:
+    low: 0.25
+    moderate: 0.50
+    high: 0.75
+
+# 2. Voice & Speech Layer Configuration
+voice:
+  asr_model_size: "tiny"       # tiny / base / small
+  device: "cpu"
+  compute_type: "int8"
+  sample_rate: 16000
+  pitch_fmin: 65               # Hz (C2)
+  pitch_fmax: 500              # Hz (~B4)
+  energy_hop_length: 512
+  pause_silence_threshold_db: -30.0
+  min_pause_duration_sec: 0.25
+  
+  # Empirical baseline reference ranges for robust fixed normalization
+  reference_bounds:
+    rms_energy: [0.02, 0.25]
+    pitch_std_hz: [5.0, 60.0]
+    speech_activity: [0.20, 0.85]
+  
+  voice_weights:
+    energy_intensity: 0.40
+    pitch_variance: 0.35
+    speech_activity: 0.25
+
+# 3. Face Expression Layer Configuration (Privacy-Preserving)
+face:
+  backend: "mediapipe"         # "mediapipe" | "landmark_fixture"
+  privacy_mode: true           # Enforces zero identity tracking and immediate pixel disposal
+  min_detection_confidence: 0.50
+  min_tracking_confidence: 0.50
+  action_weights:
+    brow_furrow: 0.40          # AU4 proxy
+    mouth_tension: 0.35        # AU15/23 proxy
+    eye_squint: 0.25           # AU7 proxy
+  thresholds:
+    agitated: 0.60
+    mild_strain: 0.35
+
+# 4. Behavior Lens Module Configuration
+behavior:
+  longitudinal_window_days: 30
+  rolling_baseline_days: 7
+  trend_threshold_pct: 0.08
+  synthetic_data_path: "data/processed/behavior_lens_synthetic.csv"
+  demo_mode: false             # If false, missing behavior returns status='unavailable'
+  use_synthetic_behavior: false
+  weights:
+    stress: 0.30
+    sleep: 0.30
+    academic: 0.20
+    screen: 0.10
+    social: 0.10
+
+# 5. Multimodal Fusion Engine Configuration (Core Research Contribution)
+fusion:
+  primary_mode: "explainable_weighted"   # "explainable_weighted" | "learned_random_forest" | "learned_mlp"
+  primary_model: "random_forest"
+  model_dir: "models/fusion"
+  
+  starting_weights:
+    text: 0.50
+    voice: 0.25
+    face: 0.15
+    behavior: 0.10
+
+  # Central Risk Thresholds (Single Source of Truth)
+  thresholds:
+    low_risk: 0.40             # [0.00, 0.39] -> Low Risk
+    moderate_risk: 0.70        # [0.40, 0.69] -> Moderate Caution
+    high_caution: 0.85         # [0.70, 0.84] -> High Caution
+    high_risk: 0.85            # [0.85, 1.00] -> High Risk / Intervention Trigger
+
+# 6. Reasoning & RAG Intervention Configuration
+reasoning:
+  enabled: false                         # Set true only when optional Qwen is requested & available
+  backend: "local_fallback"              # "qwen_omni" | "local_fallback"
+  model_name: "Qwen/Qwen2.5-Omni-7B"
+  device: "cpu"
+  load_in_8bit: false
+  quantization: "none"
+  max_new_tokens: 256
+
+rag:
+  backend: "sentence_transformers"       # "sentence_transformers" | "tfidf"
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  fallback_to_tfidf: true
+  top_k: 3
+
+intervention:
+  pause_duration_seconds: 20
+  allow_immediate_override: true
+
+# 7. Ethics & Fairness Configuration
+ethics:
+  enable_demographic_exclusion: true     # Prevents identity features from driving risk
+  max_acceptable_fpr_disparity: 0.08
+  subgroups:
+    - "male"
+    - "female"
+    - "homosexual_gay_or_lesbian"
+    - "christian"
+    - "jewish"
+    - "muslim"
+    - "black"
+    - "white"
+    - "psychiatric_or_mental_illness"
