@@ -14,6 +14,7 @@ import { MultimodalAnalysisResponse, RewriteOption, BehaviorSummary, ChatMessage
 import { CheckinModal } from '../CheckinModal';
 import { SettingsModal } from '../SettingsModal';
 import { getCurrentUser, signOutUser, getSupabaseAuthClient } from '../../lib/supabaseAuth';
+import { LandingPage } from './LandingPage';
 
 const CONFLICT_PRESETS = [
   {
@@ -60,6 +61,7 @@ export const ConsumerApp: React.FC = () => {
 
   // User state
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   // 20s cooling pause timer
@@ -111,18 +113,22 @@ export const ConsumerApp: React.FC = () => {
 
   // User session tracking
   useEffect(() => {
-    getCurrentUser().then((u) => setCurrentUser(u)).catch(() => {});
+    getCurrentUser()
+      .then((u) => setCurrentUser(u))
+      .catch(() => {})
+      .finally(() => setAuthReady(true));
 
     try {
       const supabase = getSupabaseAuthClient();
       const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
         setCurrentUser(session?.user || null);
+        setAuthReady(true);
       });
       return () => {
         authListener.subscription.unsubscribe();
       };
     } catch {
-      // Fallback gracefully
+      setAuthReady(true); // Fallback gracefully
     }
   }, []);
 
@@ -292,6 +298,26 @@ export const ConsumerApp: React.FC = () => {
     const s = timerSeconds % 8;
     return s >= 4 ? 'Inhale slowly...' : 'Exhale gently...';
   };
+
+  // ── Auth gate ──
+  // While we check if the user is logged in, show a minimal loading screen
+  if (!authReady) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-10 h-10 rounded-[14px] bg-white/[0.07] border border-white/[0.1] flex items-center justify-center">
+            <span className="text-white font-semibold text-sm">HL</span>
+          </div>
+          <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  // Not signed in → show the landing/marketing page
+  if (!currentUser) {
+    return <LandingPage />;
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col transition-colors duration-300">
