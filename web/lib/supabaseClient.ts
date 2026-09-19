@@ -204,3 +204,23 @@ export async function saveInterventionToSupabase(data: {
     return false;
   }
 }
+
+export async function fetchInterventionsFromSupabase(userId: string = DEMO_USER_ID, limit: number = 100) {
+  const { supabaseUrl, supabaseAnonKey } = getSupabaseCredentials();
+  if (!isSupabaseConnected()) return null;
+  try {
+    const res = await fetch(
+      `${supabaseUrl.replace(/\/$/, '')}/rest/v1/interventions?user_id=eq.${userId}&order=created_at.desc&limit=${limit}`,
+      {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`
+        }
+      }
+    );
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn('Supabase fetchInterventions error:', err);
+  }
+  return null;
+}

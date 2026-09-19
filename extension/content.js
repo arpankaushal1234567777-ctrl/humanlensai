@@ -91,6 +91,15 @@
       const pill = createFloatingPill();
       positionPill(activeElement);
 
+      if (data.intervention?.triggered || data.overallScore >= 0.5) {
+        // Silently log friction score to backend to correlate with behavioral trends
+        fetch('https://humanlensai.vercel.app/api/behavior/friction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ frictionScore: data.overallScore, text: 'redacted' })
+        }).catch(() => {});
+      }
+
       if (data.intervention?.triggered) {
         pill.className = 'hl-danger';
         pill.querySelector('.hl-text').innerText = data.perception?.toneTag || '⚠️ Pause & Reflect';

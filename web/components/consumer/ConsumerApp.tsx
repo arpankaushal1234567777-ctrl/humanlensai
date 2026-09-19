@@ -722,10 +722,11 @@ export const ConsumerApp: React.FC = () => {
           {/* Chart */}
           <div className="rounded-3xl bg-white/[0.04] border border-white/[0.07] p-6 space-y-4">
             <div className="flex items-center justify-between text-[12px]">
-              <span className="font-semibold text-white/70">Stress & Sleep Correlation (7 Days)</span>
+              <span className="font-semibold text-white/70">Behavior & Friction Correlation (7 Days)</span>
               <div className="flex items-center space-x-4 text-[11px] text-white/25 font-mono">
                 <span className="flex items-center gap-1.5"><span className="w-4 h-px bg-white/60" /> Stress</span>
                 <span className="flex items-center gap-1.5"><span className="w-4 h-px bg-white/25" /> Sleep</span>
+                <span className="flex items-center gap-1.5"><span className="w-4 h-px bg-sky-400" /> Friction</span>
               </div>
             </div>
             <div className="h-64 w-full">
@@ -741,6 +742,10 @@ export const ConsumerApp: React.FC = () => {
                         <stop offset="5%" stopColor="#ffffff" stopOpacity={0.06} />
                         <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
                       </linearGradient>
+                      <linearGradient id="gFriction" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                      </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="2 4" stroke="rgba(255,255,255,0.04)" />
                     <XAxis dataKey="date" stroke="rgba(255,255,255,0.2)" fontSize={11} tickLine={false} />
@@ -752,6 +757,7 @@ export const ConsumerApp: React.FC = () => {
                             <div className="font-semibold text-white">{label}</div>
                             <div className="text-white/50 font-mono">Stress: {payload[0]?.value}/10</div>
                             <div className="text-white/30 font-mono">Sleep: {payload[1]?.value}hrs</div>
+                            {payload[2] && <div className="text-sky-400 font-mono">Friction: {payload[2]?.value}/10</div>}
                           </div>
                         );
                         return null;
@@ -759,6 +765,7 @@ export const ConsumerApp: React.FC = () => {
                     />
                     <Area type="monotone" dataKey="stress" stroke="rgba(255,255,255,0.6)" strokeWidth={1.5} fillOpacity={1} fill="url(#gStress)" />
                     <Area type="monotone" dataKey="sleep" stroke="rgba(255,255,255,0.25)" strokeWidth={1.5} strokeDasharray="3 3" fillOpacity={1} fill="url(#gSleep)" />
+                    <Area type="monotone" dataKey="friction" stroke="#38bdf8" strokeWidth={2} fillOpacity={1} fill="url(#gFriction)" />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
