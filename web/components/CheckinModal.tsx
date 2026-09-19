@@ -8,9 +8,10 @@ interface CheckinModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCheckinSuccess: () => void;
+  userId?: string;
 }
 
-export const CheckinModal: React.FC<CheckinModalProps> = ({ isOpen, onClose, onCheckinSuccess }) => {
+export const CheckinModal: React.FC<CheckinModalProps> = ({ isOpen, onClose, onCheckinSuccess, userId }) => {
   const [stress, setStress] = useState(6);
   const [sleepHours, setSleepHours] = useState(6.5);
   const [mood, setMood] = useState(3);
@@ -43,7 +44,7 @@ export const CheckinModal: React.FC<CheckinModalProps> = ({ isOpen, onClose, onC
       await fetch('/api/checkins', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ ...payload, userId })
       });
 
       setSubmitted(true);

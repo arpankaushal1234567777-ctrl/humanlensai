@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
     let supabasePersisted = false;
     if (isSupabaseConnected()) {
       const saved = await saveCheckinToSupabase({
+        userId: entry.userId,
         stress: entry.stress,
         mood: entry.mood,
         sleepHours: entry.sleepHours,

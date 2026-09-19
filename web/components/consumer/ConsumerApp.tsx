@@ -141,11 +141,12 @@ export const ConsumerApp: React.FC = () => {
 
   // Fetch behavior trends
   useEffect(() => {
-    fetch('/api/behavior/summary')
+    const url = currentUser?.id ? `/api/behavior/summary?userId=${currentUser.id}` : '/api/behavior/summary';
+    fetch(url)
       .then((r) => r.json())
       .then((d) => setBehaviorData(d))
       .catch(() => {});
-  }, []);
+  }, [currentUser?.id]);
 
   // Analysis worker
   const performAnalysis = async (text: string): Promise<MultimodalAnalysisResponse | null> => {
@@ -819,7 +820,18 @@ export const ConsumerApp: React.FC = () => {
       )}
 
       {/* ── MODALS ── */}
-      <CheckinModal isOpen={isCheckinOpen} onClose={() => setIsCheckinOpen(false)} onCheckinSuccess={() => {}} />
+      <CheckinModal 
+        isOpen={isCheckinOpen} 
+        onClose={() => setIsCheckinOpen(false)} 
+        userId={currentUser?.id}
+        onCheckinSuccess={() => {
+          const url = currentUser?.id ? `/api/behavior/summary?userId=${currentUser.id}` : '/api/behavior/summary';
+          fetch(url)
+            .then((r) => r.json())
+            .then((d) => setBehaviorData(d))
+            .catch(() => {});
+        }} 
+      />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} apiKey="" onSaveApiKey={() => {}} />
 
       {isExtensionModalOpen && (
