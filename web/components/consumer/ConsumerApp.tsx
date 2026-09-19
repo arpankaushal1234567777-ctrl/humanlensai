@@ -53,6 +53,13 @@ export const ConsumerApp: React.FC = () => {
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [showAdminFeatures, setShowAdminFeatures] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('admin=true')) {
+      setShowAdminFeatures(true);
+    }
+  }, []);
 
   // Multimodal Sensor Toggles
   const [cameraActive, setCameraActive] = useState(false);
@@ -369,13 +376,15 @@ export const ConsumerApp: React.FC = () => {
 
           {/* Right actions */}
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setIsExtensionModalOpen(true)}
-              className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium text-white/40 hover:text-white border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-all"
-            >
-              <Globe className="w-3.5 h-3.5 text-sky-400" />
-              <span>Extension</span>
-            </button>
+            {showAdminFeatures && (
+              <button
+                onClick={() => setIsExtensionModalOpen(true)}
+                className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium text-white/40 hover:text-white border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-all"
+              >
+                <Globe className="w-3.5 h-3.5 text-sky-400" />
+                <span>Extension</span>
+              </button>
+            )}
 
             {/* User dropdown */}
             <div className="relative">
@@ -398,13 +407,15 @@ export const ConsumerApp: React.FC = () => {
                     <div className="text-[10px] text-emerald-400 font-mono">Authenticated</div>
                   </div>
                   <div className="px-2 py-1.5 space-y-0.5">
-                    <button
-                      onClick={() => { setIsSettingsOpen(true); setUserDropdownOpen(false); }}
-                      className="w-full px-3 py-2 text-left text-white/50 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center space-x-2 transition-all"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                      <span>AI Settings</span>
-                    </button>
+                    {showAdminFeatures && (
+                      <button
+                        onClick={() => { setIsSettingsOpen(true); setUserDropdownOpen(false); }}
+                        className="w-full px-3 py-2 text-left text-white/50 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center space-x-2 transition-all"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                        <span>AI Settings</span>
+                      </button>
+                    )}
                     <Link
                       href="/research"
                       className="w-full px-3 py-2 text-left text-white/50 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center space-x-2 transition-all"
