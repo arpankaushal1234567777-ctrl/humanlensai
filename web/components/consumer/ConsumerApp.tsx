@@ -416,13 +416,15 @@ export const ConsumerApp: React.FC = () => {
                         <span>AI Settings</span>
                       </button>
                     )}
-                    <Link
-                      href="/research"
-                      className="w-full px-3 py-2 text-left text-white/50 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center space-x-2 transition-all"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Research Studio</span>
-                    </Link>
+                    {showAdminFeatures && (
+                      <Link
+                        href="/research"
+                        className="w-full px-3 py-2 text-left text-white/50 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center space-x-2 transition-all"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Research Studio</span>
+                      </Link>
+                    )}
                   </div>
                   <div className="px-2 pt-1 border-t border-white/[0.06]">
                     <button
@@ -863,13 +865,15 @@ export const ConsumerApp: React.FC = () => {
           <div className="w-4 h-4 rounded-md bg-white flex items-center justify-center text-black font-bold text-[8px]">HL</div>
           <span>© {new Date().getFullYear()} HumanLens AI · Zero Keystroke Logging</span>
         </div>
-        <Link
-          href="/research"
-          className="text-[11px] text-white/20 hover:text-white/60 transition-colors font-mono flex items-center space-x-1"
-        >
-          <span>Research Studio</span>
-          <ArrowUpRight className="w-3 h-3" />
-        </Link>
+        {showAdminFeatures && (
+          <Link
+            href="/research"
+            className="text-[11px] text-white/20 hover:text-white/60 transition-colors font-mono flex items-center space-x-1"
+          >
+            <span>Research Studio</span>
+            <ArrowUpRight className="w-3 h-3" />
+          </Link>
+        )}
       </footer>
     </div>
   );
