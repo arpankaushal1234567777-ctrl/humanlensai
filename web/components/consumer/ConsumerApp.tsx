@@ -839,19 +839,20 @@ export const ConsumerApp: React.FC = () => {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] space-y-2.5 text-[12px] text-white/50 leading-relaxed">
-              <div className="font-semibold text-white/70">Setup in 3 steps</div>
-              <ol className="list-decimal list-inside space-y-1.5">
-                <li>Open Chrome → <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono text-[11px]">chrome://extensions</code></li>
-                <li>Enable <strong className="text-white/70">Developer Mode</strong></li>
-                <li>Click <strong className="text-white/70">Load unpacked</strong> → select the <code className="px-1.5 py-0.5 rounded bg-white/[0.08] text-white font-mono text-[11px]">extension</code> folder</li>
-              </ol>
+            <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex flex-col items-center text-center space-y-3">
+              <div className="w-10 h-10 rounded-full bg-sky-500/10 flex items-center justify-center border border-sky-500/20">
+                <Globe className="w-4 h-4 text-sky-400" />
+              </div>
+              <div className="font-semibold text-white text-[14px]">Coming to the Chrome Web Store</div>
+              <p className="text-[12px] text-white/50 leading-relaxed">
+                The official HumanLens extension is currently undergoing security review by Google. Soon, you'll be able to install it with one click to bring real-time tone protection to Gmail, Slack, and WhatsApp.
+              </p>
             </div>
             <button
               onClick={() => setIsExtensionModalOpen(false)}
-              className="w-full py-3 rounded-full bg-white text-black font-semibold text-[13px] hover:bg-white/90 transition-all"
+              className="w-full py-3 rounded-full bg-white text-black font-semibold text-[13px] hover:bg-white/90 transition-all active:scale-95"
             >
-              Done
+              Notify Me When Live
             </button>
           </div>
         </div>
