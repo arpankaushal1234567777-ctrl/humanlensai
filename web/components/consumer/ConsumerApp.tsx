@@ -376,15 +376,13 @@ export const ConsumerApp: React.FC = () => {
 
           {/* Right actions */}
           <div className="flex items-center space-x-2">
-            {showAdminFeatures && (
-              <button
-                onClick={() => setIsExtensionModalOpen(true)}
-                className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium text-white/40 hover:text-white border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-all"
-              >
-                <Globe className="w-3.5 h-3.5 text-sky-400" />
-                <span>Extension</span>
-              </button>
-            )}
+            <button
+              onClick={() => setIsExtensionModalOpen(true)}
+              className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium text-white/40 hover:text-white border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-all"
+            >
+              <Globe className="w-3.5 h-3.5 text-sky-400" />
+              <span>Extension</span>
+            </button>
 
             {/* User dropdown */}
             <div className="relative">
