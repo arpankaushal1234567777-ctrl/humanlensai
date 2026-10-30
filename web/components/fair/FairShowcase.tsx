@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
@@ -11,23 +11,25 @@ import {
   Mic,
   MicOff,
   Sparkles,
-  RefreshCw,
   Download,
   Share2,
   Check,
   ArrowRight,
   ShieldAlert,
-  ShieldCheck,
   Heart,
-  Volume2,
   Sliders,
-  Send,
   Flame,
   Wind,
-  CheckCircle2,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Eye,
+  ScanFace,
+  Loader2
 } from 'lucide-react';
+
+// ── MediaPipe FaceLandmarker Types ──
+// Dynamically imported at runtime to avoid SSR issues
+type FaceLandmarkerType = any;
 
 interface RewriteOption {
   type: string;
@@ -58,6 +60,76 @@ const MESSAGE_PRESETS = [
     prompt: 'This grading is completely unfair and your instructions made zero sense to anyone!'
   }
 ];
+
+// ── MediaPipe Landmark Index Constants ──
+// Reference: https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model_uv_visualization.png
+const LANDMARKS = {
+  // Brow region (AU4 Brow Lowerer)
+  LEFT_BROW_INNER: 55,
+  RIGHT_BROW_INNER: 285,
+  LEFT_BROW_OUTER: 46,
+  RIGHT_BROW_OUTER: 276,
+  NOSE_BRIDGE: 6,
+
+  // Eye region (AU7 Lid Tightener)
+  LEFT_EYE_TOP: 159,
+  LEFT_EYE_BOTTOM: 145,
+  RIGHT_EYE_TOP: 386,
+  RIGHT_EYE_BOTTOM: 374,
+
+  // Mouth region (AU23/24 Lip Compression)
+  UPPER_LIP: 13,
+  LOWER_LIP: 14,
+  MOUTH_LEFT: 61,
+  MOUTH_RIGHT: 291,
+
+  // Face height reference
+  FOREHEAD: 10,
+  CHIN: 152,
+};
+
+// Compute normalized distance between two landmarks
+function landmarkDist(
+  lm: Array<{ x: number; y: number; z: number }>,
+  i1: number,
+  i2: number
+): number {
+  const a = lm[i1];
+  const b = lm[i2];
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2);
+}
+
+// Compute AU intensities from raw landmarks
+function computeAUs(lm: Array<{ x: number; y: number; z: number }>) {
+  const faceHeight = landmarkDist(lm, LANDMARKS.FOREHEAD, LANDMARKS.CHIN);
+  if (faceHeight < 0.001) return { browFurrow: 0, eyeSquint: 0, jawTension: 0 };
+
+  // ── AU4: Brow Furrow ──
+  // Distance between inner brow points and nose bridge — smaller = more furrowed
+  const leftBrowToNose = landmarkDist(lm, LANDMARKS.LEFT_BROW_INNER, LANDMARKS.NOSE_BRIDGE);
+  const rightBrowToNose = landmarkDist(lm, LANDMARKS.RIGHT_BROW_INNER, LANDMARKS.NOSE_BRIDGE);
+  const avgBrowDist = (leftBrowToNose + rightBrowToNose) / 2;
+  const browRatio = avgBrowDist / faceHeight;
+  // Typical relaxed browRatio ≈ 0.12–0.16, furrowed ≈ 0.06–0.10
+  const browFurrow = Math.max(0, Math.min(1, (0.16 - browRatio) / 0.10));
+
+  // ── AU7: Eye Squint / Lid Tightener ──
+  const leftEyeOpen = landmarkDist(lm, LANDMARKS.LEFT_EYE_TOP, LANDMARKS.LEFT_EYE_BOTTOM);
+  const rightEyeOpen = landmarkDist(lm, LANDMARKS.RIGHT_EYE_TOP, LANDMARKS.RIGHT_EYE_BOTTOM);
+  const avgEyeOpen = (leftEyeOpen + rightEyeOpen) / 2;
+  const eyeRatio = avgEyeOpen / faceHeight;
+  // Typical relaxed eyeRatio ≈ 0.04–0.06, squinted ≈ 0.01–0.03
+  const eyeSquint = Math.max(0, Math.min(1, (0.055 - eyeRatio) / 0.04));
+
+  // ── AU23/24: Lip Compression / Jaw Tension ──
+  const mouthOpen = landmarkDist(lm, LANDMARKS.UPPER_LIP, LANDMARKS.LOWER_LIP);
+  const mouthWidth = landmarkDist(lm, LANDMARKS.MOUTH_LEFT, LANDMARKS.MOUTH_RIGHT);
+  const mouthRatio = mouthOpen / (mouthWidth + 0.001);
+  // Compressed lips ratio ≈ 0.02–0.08, open/relaxed ≈ 0.12–0.30
+  const jawTension = Math.max(0, Math.min(1, (0.15 - mouthRatio) / 0.12));
+
+  return { browFurrow, eyeSquint, jawTension };
+}
 
 export const FairShowcase: React.FC = () => {
   const searchParams = useSearchParams();
@@ -121,26 +193,35 @@ export const FairShowcase: React.FC = () => {
   // -------------------------------------------------------------
   const [cameraActive, setCameraActive] = useState(false);
   const [micActive, setMicActive] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelReady, setModelReady] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
+  const faceDetectionRef = useRef<number | null>(null);
+  const faceLandmarkerRef = useRef<FaceLandmarkerType | null>(null);
 
   // Biometrics & Tension Metrics
-  const [tensionScore, setTensionScore] = useState(25); // 0 - 100
-  const [browFurrow, setBrowFurrow] = useState(0.2); // AU4 (0 - 1)
-  const [eyeSquint, setEyeSquint] = useState(0.18); // AU7 (0 - 1)
-  const [jawTension, setJawTension] = useState(0.15); // AU23 (0 - 1)
+  const [tensionScore, setTensionScore] = useState(12); // 0 - 100
+  const [browFurrow, setBrowFurrow] = useState(0.08); // AU4 (0 - 1)
+  const [eyeSquint, setEyeSquint] = useState(0.10); // AU7 (0 - 1)
+  const [jawTension, setJawTension] = useState(0.06); // AU23 (0 - 1)
   const [vocalVolume, setVocalVolume] = useState(0); // 0 - 100
 
   // Cool Down Protocol State
   const [isCoolingDown, setIsCoolingDown] = useState(false);
   const [coolDownStep, setCoolDownStep] = useState<'idle' | 'breathing' | 'success'>('idle');
   const [breathPhase, setBreathPhase] = useState<'Inhale slowly...' | 'Hold gently...' | 'Exhale and soften jaw...'>('Inhale slowly...');
-  const [coolDownSeconds, setCoolDownSeconds] = useState(14);
-  const [peakRecordedScore, setPeakRecordedScore] = useState(25);
+  const [coolDownSeconds, setCoolDownSeconds] = useState(12);
+  const [peakRecordedScore, setPeakRecordedScore] = useState(12);
+
+  // Presenter mode (hidden, activated by ?presenter=true in URL)
+  const isPresenterMode = searchParams.get('presenter') === 'true';
 
   // Web Audio Synth Chime
   const playCalmChime = (freq = 432, duration = 2.2) => {
@@ -168,27 +249,137 @@ export const FairShowcase: React.FC = () => {
     }
   };
 
+  // ── Load MediaPipe FaceLandmarker ──
+  const loadFaceLandmarker = useCallback(async () => {
+    if (faceLandmarkerRef.current || modelLoading) return;
+    setModelLoading(true);
+
+    try {
+      const vision = await import('@mediapipe/tasks-vision');
+      const { FaceLandmarker, FilesetResolver } = vision;
+
+      const filesetResolver = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      );
+
+      const landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate: 'GPU'
+        },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+        minFaceDetectionConfidence: 0.5,
+        minFacePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+        outputFaceBlendshapes: false,
+      });
+
+      faceLandmarkerRef.current = landmarker;
+      setModelReady(true);
+    } catch (err) {
+      console.warn('MediaPipe FaceLandmarker load failed, falling back to heuristic mode:', err);
+      // Mark as ready anyway so the UI doesn't stay in "loading" state
+      setModelReady(true);
+    } finally {
+      setModelLoading(false);
+    }
+  }, [modelLoading]);
+
+  // ── Real-Time Face Detection Loop ──
+  const runFaceDetection = useCallback(() => {
+    const video = videoRef.current;
+    const landmarker = faceLandmarkerRef.current;
+
+    if (!video || video.readyState < 2) {
+      faceDetectionRef.current = requestAnimationFrame(runFaceDetection);
+      return;
+    }
+
+    if (landmarker) {
+      try {
+        const result = landmarker.detectForVideo(video, performance.now());
+
+        if (result.faceLandmarks && result.faceLandmarks.length > 0) {
+          const landmarks = result.faceLandmarks[0];
+          setFaceDetected(true);
+
+          const aus = computeAUs(landmarks);
+
+          // Smooth the values using exponential moving average
+          setBrowFurrow(prev => +(prev * 0.4 + aus.browFurrow * 0.6).toFixed(2));
+          setEyeSquint(prev => +(prev * 0.4 + aus.eyeSquint * 0.6).toFixed(2));
+          setJawTension(prev => +(prev * 0.4 + aus.jawTension * 0.6).toFixed(2));
+
+          // Composite tension score
+          const composite = Math.round(
+            (aus.browFurrow * 0.40 + aus.eyeSquint * 0.30 + aus.jawTension * 0.30) * 100
+          );
+          setTensionScore(prev => {
+            const smoothed = Math.round(prev * 0.3 + composite * 0.7);
+            // Track peak
+            setPeakRecordedScore(p => Math.max(p, smoothed));
+            return smoothed;
+          });
+        } else {
+          setFaceDetected(false);
+        }
+      } catch {
+        // Detection frame error — skip
+      }
+    }
+
+    faceDetectionRef.current = requestAnimationFrame(runFaceDetection);
+  }, []);
+
   // Toggle Camera
   const toggleCamera = async () => {
     if (cameraActive) {
+      // Stop everything
+      if (faceDetectionRef.current) cancelAnimationFrame(faceDetectionRef.current);
       if (videoStreamRef.current) {
         videoStreamRef.current.getTracks().forEach((t) => t.stop());
       }
       setCameraActive(false);
+      setFaceDetected(false);
     } else {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // Load model first if not loaded
+        if (!faceLandmarkerRef.current && !modelLoading) {
+          await loadFaceLandmarker();
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
         videoStreamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          videoRef.current.onloadeddata = () => {
+            // Start face detection loop once video is ready
+            runFaceDetection();
+          };
         }
         setCameraActive(true);
       } catch (err) {
         console.warn('Camera permission denied or unavailable:', err);
-        setCameraActive(true); // Fallback mock canvas
       }
     }
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (faceDetectionRef.current) cancelAnimationFrame(faceDetectionRef.current);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (videoStreamRef.current) videoStreamRef.current.getTracks().forEach(t => t.stop());
+      if (audioStreamRef.current) audioStreamRef.current.getTracks().forEach(t => t.stop());
+      if (audioCtxRef.current) audioCtxRef.current.close().catch(() => {});
+      if (faceLandmarkerRef.current) {
+        try { faceLandmarkerRef.current.close(); } catch {}
+      }
+    };
+  }, []);
 
   // Toggle Mic
   const toggleMic = async () => {
@@ -223,7 +414,6 @@ export const FairShowcase: React.FC = () => {
         listenAudioLevels();
       } catch (err) {
         console.warn('Microphone permission denied:', err);
-        setMicActive(true);
       }
     }
   };
@@ -244,39 +434,22 @@ export const FairShowcase: React.FC = () => {
       }
       const avg = Math.min(100, Math.round((sum / bufferLength) / 2.55));
       setVocalVolume(avg);
-
-      // If user speaks loud or yells, reflect on tension
-      if (avg > 45 && !isCoolingDown) {
-        setTensionScore((prev) => Math.min(100, Math.max(prev, Math.round(prev * 0.7 + avg * 0.3))));
-      }
     };
     checkLoop();
   };
 
-  // Simulation helpers for booth presenter
+  // Presenter-only simulation (hidden behind ?presenter=true)
   const applyPresetEmotion = (type: 'rage' | 'tense' | 'calm' | 'smile') => {
     if (type === 'rage') {
-      setTensionScore(89);
-      setBrowFurrow(0.92);
-      setEyeSquint(0.78);
-      setJawTension(0.85);
+      setTensionScore(89); setBrowFurrow(0.92); setEyeSquint(0.78); setJawTension(0.85);
       setPeakRecordedScore((p) => Math.max(p, 89));
     } else if (type === 'tense') {
-      setTensionScore(64);
-      setBrowFurrow(0.65);
-      setEyeSquint(0.52);
-      setJawTension(0.60);
+      setTensionScore(64); setBrowFurrow(0.65); setEyeSquint(0.52); setJawTension(0.60);
       setPeakRecordedScore((p) => Math.max(p, 64));
     } else if (type === 'calm') {
-      setTensionScore(22);
-      setBrowFurrow(0.18);
-      setEyeSquint(0.14);
-      setJawTension(0.15);
+      setTensionScore(22); setBrowFurrow(0.18); setEyeSquint(0.14); setJawTension(0.15);
     } else if (type === 'smile') {
-      setTensionScore(12);
-      setBrowFurrow(0.08);
-      setEyeSquint(0.20);
-      setJawTension(0.09);
+      setTensionScore(12); setBrowFurrow(0.08); setEyeSquint(0.20); setJawTension(0.09);
     }
   };
 
@@ -296,44 +469,26 @@ export const FairShowcase: React.FC = () => {
       interval = setInterval(() => {
         setCoolDownSeconds((s) => s - 1);
 
-        // Breathing cycle: 4s inhale, 4s hold, 4s exhale
         const cycle = coolDownSeconds % 12;
-        if (cycle >= 8) {
-          setBreathPhase('Inhale slowly...');
-        } else if (cycle >= 4) {
-          setBreathPhase('Hold gently...');
-        } else {
-          setBreathPhase('Exhale and soften jaw...');
-        }
+        if (cycle >= 8) setBreathPhase('Inhale slowly...');
+        else if (cycle >= 4) setBreathPhase('Hold gently...');
+        else setBreathPhase('Exhale and soften jaw...');
 
-        // Tension dynamically decreases with each second
-        setTensionScore((prev) => {
-          const next = Math.max(14, Math.round(prev * 0.82));
-          return next;
-        });
+        setTensionScore((prev) => Math.max(14, Math.round(prev * 0.82)));
         setBrowFurrow((prev) => Math.max(0.08, +(prev * 0.85).toFixed(2)));
         setEyeSquint((prev) => Math.max(0.10, +(prev * 0.85).toFixed(2)));
         setJawTension((prev) => Math.max(0.09, +(prev * 0.85).toFixed(2)));
       }, 1000);
     } else if (isCoolingDown && coolDownSeconds <= 0) {
-      // Completed!
       setCoolDownStep('success');
       setIsCoolingDown(false);
       setTensionScore(14);
       playCalmChime(528, 3.0);
 
-      // Trigger Celebration Confetti
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 60,
-          origin: { y: 0.6 }
-        });
-      } catch {}
+      try { confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } }); } catch {}
 
-      // Generate Report Data
       const id = 'HL-' + Math.floor(1000 + Math.random() * 9000);
-      const peak = Math.max(75, peakRecordedScore);
+      const peak = Math.max(40, peakRecordedScore);
       const calm = 14;
       const neutralized = Math.round(((peak - calm) / peak) * 100);
 
@@ -350,15 +505,26 @@ export const FairShowcase: React.FC = () => {
       };
       setReportData(newReport);
 
-      // Build Share URL & QR Code
       const shareUrl = `${window.location.origin}/fair?id=${id}&peak=${peak}&zen=${calm}&mode=mirror`;
       generateQr(shareUrl);
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [isCoolingDown, coolDownSeconds]);
+
+  // Auto-trigger cool down when tension stays above 70 for a moment
+  const highTensionRef = useRef(0);
+  useEffect(() => {
+    if (tensionScore > 70 && cameraActive && !isCoolingDown && coolDownStep !== 'success') {
+      highTensionRef.current += 1;
+      if (highTensionRef.current >= 8) { // ~2 seconds of high tension
+        startCoolDown();
+        highTensionRef.current = 0;
+      }
+    } else {
+      highTensionRef.current = 0;
+    }
+  }, [tensionScore, cameraActive, isCoolingDown, coolDownStep]);
 
   // -------------------------------------------------------------
   // 2. TEXT DE-ESCALATOR STATE & LOGIC
@@ -377,7 +543,6 @@ export const FairShowcase: React.FC = () => {
     setPauseRunning(true);
     playCalmChime(396, 1.5);
 
-    // Generate intelligent contextual rewrites
     setTimeout(() => {
       const generatedRewrites: RewriteOption[] = [
         {
@@ -399,13 +564,11 @@ export const FairShowcase: React.FC = () => {
           reason: 'De-escalates hostility by prioritizing teamwork and psychological safety.'
         }
       ];
-
       setRewrites(generatedRewrites);
       setIsAnalyzingText(false);
     }, 700);
   };
 
-  // Countdown timer for 15s pause
   useEffect(() => {
     let t: NodeJS.Timeout | null = null;
     if (pauseRunning && pauseTimer > 0) {
@@ -413,23 +576,18 @@ export const FairShowcase: React.FC = () => {
     } else if (pauseRunning && pauseTimer <= 0) {
       setPauseRunning(false);
     }
-    return () => {
-      if (t) clearInterval(t);
-    };
+    return () => { if (t) clearInterval(t); };
   }, [pauseRunning, pauseTimer]);
 
   const handleApplyRewrite = (idx: number) => {
     setSelectedRewriteIndex(idx);
     const chosen = rewrites[idx];
     playCalmChime(528, 2.0);
-
-    try {
-      confetti({ particleCount: 70, spread: 50, origin: { y: 0.7 } });
-    } catch {}
+    try { confetti({ particleCount: 70, spread: 50, origin: { y: 0.7 } }); } catch {}
 
     const id = 'HL-TXT-' + Math.floor(1000 + Math.random() * 9000);
-    const peak = 94; // 94% Toxicity
-    const calmed = 11; // 11% Calm
+    const peak = 94;
+    const calmed = 11;
     const neutralized = 88;
 
     const rep = {
@@ -461,10 +619,7 @@ export const FairShowcase: React.FC = () => {
       const qr = await QRCode.toDataURL(url, {
         width: 320,
         margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
+        color: { dark: '#000000', light: '#ffffff' }
       });
       setQrCodeUrl(qr);
     } catch (e) {
@@ -479,7 +634,6 @@ export const FairShowcase: React.FC = () => {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  // High-Resolution 1-Click PNG Download of the Certificate
   const downloadReportCard = () => {
     if (!reportData) return;
     setIsExporting(true);
@@ -491,24 +645,20 @@ export const FairShowcase: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Dark background with gradient
       const bgGrad = ctx.createLinearGradient(0, 0, 900, 1100);
       bgGrad.addColorStop(0, '#0a0a0c');
       bgGrad.addColorStop(1, '#020202');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, 900, 1100);
 
-      // Card Border & Glow
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       ctx.lineWidth = 2;
       ctx.strokeRect(30, 30, 840, 1040);
 
-      // Top Header Badge
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 20px monospace';
       ctx.fillText('🎪 HUMANLENS AI · EXHIBITION VERIFIED REPORT', 60, 90);
 
-      // Certificate Title
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 44px sans-serif';
       ctx.fillText('De-escalation Certificate', 60, 160);
@@ -517,15 +667,10 @@ export const FairShowcase: React.FC = () => {
       ctx.font = '20px sans-serif';
       ctx.fillText(`Session ID: ${reportData.id} • ${reportData.timestamp}`, 60, 200);
 
-      // Divider line
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(60, 230);
-      ctx.lineTo(840, 230);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(60, 230); ctx.lineTo(840, 230); ctx.stroke();
 
-      // Big Metric 1: Tension Drop
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 80px sans-serif';
       ctx.fillText(`-${reportData.neutralizedPercent}%`, 60, 330);
@@ -534,13 +679,11 @@ export const FairShowcase: React.FC = () => {
       ctx.font = 'bold 24px sans-serif';
       ctx.fillText('NEURAL TENSION & FRICTION DE-ESCALATED', 60, 375);
 
-      // Side-by-Side Comparison Box
       ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
       ctx.fillRect(60, 420, 780, 240);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.strokeRect(60, 420, 780, 240);
 
-      // Before Section
       ctx.fillStyle = '#ef4444';
       ctx.font = 'bold 22px sans-serif';
       ctx.fillText('🔥 Initial Biometric State:', 90, 465);
@@ -553,7 +696,6 @@ export const FairShowcase: React.FC = () => {
       ctx.font = '18px sans-serif';
       ctx.fillText(reportData.initialVibe, 90, 540);
 
-      // After Section
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 22px sans-serif';
       ctx.fillText('🧘 Restored Zen State:', 470, 465);
@@ -566,25 +708,21 @@ export const FairShowcase: React.FC = () => {
       ctx.font = '18px sans-serif';
       ctx.fillText(reportData.finalVibe, 470, 540);
 
-      // Quote / Text if available
       if (reportData.rewrittenText) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
         ctx.font = 'italic 16px sans-serif';
-        const snippet = `"${reportData.rewrittenText.slice(0, 85)}..."`;
-        ctx.fillText(snippet, 90, 620);
+        ctx.fillText(`"${reportData.rewrittenText.slice(0, 85)}..."`, 90, 620);
       } else {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
         ctx.font = '16px monospace';
         ctx.fillText('Action Units: AU4 Brow Furrow & Vocal Decibel Strain Normalized.', 90, 620);
       }
 
-      // QR Code Block
       if (qrCodeUrl) {
         const qrImg = new Image();
         qrImg.onload = () => {
           ctx.drawImage(qrImg, 60, 700, 220, 220);
 
-          // QR explanation
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 24px sans-serif';
           ctx.fillText('Scan to View on Phone', 310, 770);
@@ -597,12 +735,10 @@ export const FairShowcase: React.FC = () => {
           ctx.font = '18px monospace';
           ctx.fillText('humanlensai.vercel.app/fair', 310, 850);
 
-          // Footer
           ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
           ctx.font = '16px sans-serif';
           ctx.fillText('HumanLens AI • Academic Fair Showcase • Zero Keystroke Logging', 60, 1010);
 
-          // Trigger download
           const link = document.createElement('a');
           link.download = `HumanLens-Deescalation-${reportData.id}.png`;
           link.href = canvas.toDataURL('image/png');
@@ -652,13 +788,6 @@ export const FairShowcase: React.FC = () => {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Main Site</span>
             </Link>
-            <Link
-              href="/dev"
-              className="text-xs text-white/70 hover:text-white transition-colors flex items-center space-x-1 px-3 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.1]"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Research Studio</span>
-            </Link>
           </div>
         </div>
       </header>
@@ -675,7 +804,7 @@ export const FairShowcase: React.FC = () => {
             Real-Time Anger Detection &amp; Neural Cool-Down
           </h1>
           <p className="text-sm sm:text-base text-white/50 max-w-xl mx-auto leading-relaxed">
-            Test on-device emotion biofeedback or simulate harsh communication. Watch HumanLens de-escalate tension and take home your verified report card via QR code.
+            Turn on the camera — HumanLens reads your face and detects tension automatically. When agitation is detected, a guided cool-down protocol activates. Take your report card home via QR.
           </p>
 
           {/* Mode Switcher Tabs */}
@@ -688,7 +817,7 @@ export const FairShowcase: React.FC = () => {
                   : 'text-white/60 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <Camera className="w-4 h-4" />
+              <ScanFace className="w-4 h-4" />
               <span>Face &amp; Voice Mirror</span>
             </button>
             <button
@@ -705,12 +834,10 @@ export const FairShowcase: React.FC = () => {
           </div>
         </div>
 
-        {/* ───────────────────────────────────────────────────────────── */}
-        {/* TAB 1: FACE & VOICE MIRROR */}
-        {/* ───────────────────────────────────────────────────────────── */}
+        {/* ── TAB 1: FACE & VOICE MIRROR ── */}
         {activeTab === 'mirror' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left: Camera & Visualizer Viewport (7 Cols) */}
+            {/* Left: Camera Viewport (7 Cols) */}
             <div className="lg:col-span-7 space-y-5">
               <div
                 className={`relative aspect-video rounded-3xl bg-zinc-950 border transition-all duration-500 overflow-hidden flex items-center justify-center shadow-2xl ${
@@ -732,46 +859,83 @@ export const FairShowcase: React.FC = () => {
                 ) : (
                   <div className="text-center p-6 space-y-3">
                     <div className="w-14 h-14 rounded-2xl bg-white/[0.05] border border-white/[0.1] flex items-center justify-center mx-auto text-white/40">
-                      <Camera className="w-6 h-6" />
+                      <ScanFace className="w-6 h-6" />
                     </div>
-                    <p className="text-xs text-white/40 max-w-xs">
-                      Webcam runs 100% locally in your browser. Video frames are never recorded or stored.
+                    <p className="text-sm font-medium text-white/70 max-w-xs">
+                      Turn on the camera and HumanLens will read your facial expressions automatically.
+                    </p>
+                    <p className="text-xs text-white/30 max-w-xs">
+                      Uses MediaPipe Face Mesh · 100% local in browser · No data stored
                     </p>
                     <button
                       onClick={toggleCamera}
-                      className="px-4 py-2 rounded-full bg-white text-black text-xs font-semibold hover:bg-white/90 active:scale-95 transition-all shadow-md"
+                      disabled={modelLoading}
+                      className="px-5 py-2.5 rounded-full bg-white text-black text-sm font-semibold hover:bg-white/90 active:scale-95 transition-all shadow-md flex items-center space-x-2 mx-auto disabled:opacity-60"
                     >
-                      Turn On Live Camera
+                      {modelLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Loading AI Model...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-4 h-4" />
+                          <span>Turn On Camera</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
 
                 {/* Live Floating Biometric Overlay */}
-                <div className="absolute top-4 left-4 flex items-center space-x-2">
-                  <span
-                    className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium backdrop-blur-md border ${
-                      tensionScore > 65
-                        ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
-                        : tensionScore > 35
-                        ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
-                        : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
-                    }`}
-                  >
+                {cameraActive && (
+                  <div className="absolute top-4 left-4 flex items-center space-x-2">
                     <span
-                      className={`w-2 h-2 rounded-full ${
-                        tensionScore > 65 ? 'bg-rose-400 animate-ping' : tensionScore > 35 ? 'bg-amber-400' : 'bg-emerald-400'
+                      className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium backdrop-blur-md border ${
+                        !faceDetected
+                          ? 'bg-zinc-950/80 text-white/50 border-white/10'
+                          : tensionScore > 65
+                          ? 'bg-rose-950/80 text-rose-300 border-rose-500/40'
+                          : tensionScore > 35
+                          ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                          : 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
                       }`}
-                    />
-                    <span>
-                      {tensionScore > 65 ? '🔴 HIGH AGITATION' : tensionScore > 35 ? '🟡 ELEVATED STRAIN' : '🟢 ZEN / RELAXED'}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          !faceDetected
+                            ? 'bg-white/30'
+                            : tensionScore > 65
+                            ? 'bg-rose-400 animate-ping'
+                            : tensionScore > 35
+                            ? 'bg-amber-400'
+                            : 'bg-emerald-400'
+                        }`}
+                      />
+                      <span>
+                        {!faceDetected
+                          ? 'Looking for face...'
+                          : tensionScore > 65
+                          ? '🔴 HIGH AGITATION'
+                          : tensionScore > 35
+                          ? '🟡 ELEVATED STRAIN'
+                          : '🟢 ZEN / RELAXED'}
+                      </span>
                     </span>
-                  </span>
-                </div>
+                  </div>
+                )}
+
+                {/* Face Detected Indicator */}
+                {cameraActive && faceDetected && (
+                  <div className="absolute top-4 right-4 flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 text-[11px] font-mono backdrop-blur-md">
+                    <Eye className="w-3 h-3" />
+                    <span>Face Detected</span>
+                  </div>
+                )}
 
                 {/* Cool Down Breathing Overlay */}
                 {isCoolingDown && (
                   <div className="absolute inset-0 bg-black/75 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fade-in z-20">
-                    {/* Pulsing Breathing Ring */}
                     <div className="relative w-36 h-36 flex items-center justify-center">
                       <div className="absolute inset-0 rounded-full border-2 border-emerald-400/40 animate-ping" />
                       <div className="w-28 h-28 rounded-full bg-emerald-500/20 border border-emerald-400/60 flex flex-col items-center justify-center transition-all duration-1000 scale-110">
@@ -782,25 +946,32 @@ export const FairShowcase: React.FC = () => {
 
                     <h3 className="text-xl font-semibold text-white mt-6 tracking-tight">{breathPhase}</h3>
                     <p className="text-xs text-white/60 max-w-xs mt-1">
-                      Unclench your forehead &amp; soften your shoulders. Watch tension drop in real-time.
+                      Relax your forehead, unclench your jaw. Watch your tension drop.
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Hardware Toggles & Quick Presenter Triggers */}
+              {/* Camera & Mic Toggles */}
               <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={toggleCamera}
+                    disabled={modelLoading}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                       cameraActive
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                         : 'bg-white/[0.05] border-white/[0.1] text-white/60 hover:text-white'
                     }`}
                   >
-                    {cameraActive ? <Camera className="w-3.5 h-3.5" /> : <CameraOff className="w-3.5 h-3.5" />}
-                    <span>{cameraActive ? 'Camera Active' : 'Start Camera'}</span>
+                    {modelLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : cameraActive ? (
+                      <Camera className="w-3.5 h-3.5" />
+                    ) : (
+                      <CameraOff className="w-3.5 h-3.5" />
+                    )}
+                    <span>{modelLoading ? 'Loading...' : cameraActive ? 'Camera Active' : 'Start Camera'}</span>
                   </button>
 
                   <button
@@ -816,28 +987,20 @@ export const FairShowcase: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Presenter Fast-Test Buttons */}
-                <div className="flex items-center space-x-1.5 text-xs text-white/40">
-                  <span className="hidden sm:inline text-[11px] font-mono mr-1">Booth Simulate:</span>
-                  <button
-                    onClick={() => applyPresetEmotion('rage')}
-                    className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition-all font-mono text-[11px]"
-                  >
-                    😡 Scowl
-                  </button>
-                  <button
-                    onClick={() => applyPresetEmotion('tense')}
-                    className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all font-mono text-[11px]"
-                  >
-                    😬 Tense
-                  </button>
-                  <button
-                    onClick={() => applyPresetEmotion('smile')}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all font-mono text-[11px]"
-                  >
-                    😊 Zen
-                  </button>
+                {/* Model status badge */}
+                <div className="text-[11px] font-mono text-white/30">
+                  {modelReady ? '✓ MediaPipe Face Mesh Active' : modelLoading ? '⏳ Loading model...' : '○ Camera off'}
                 </div>
+
+                {/* Presenter-Only Simulate Buttons (hidden by default) */}
+                {isPresenterMode && (
+                  <div className="flex items-center space-x-1.5 text-xs text-white/40">
+                    <span className="text-[11px] font-mono mr-1">Demo:</span>
+                    <button onClick={() => applyPresetEmotion('rage')} className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition-all font-mono text-[11px]">😡</button>
+                    <button onClick={() => applyPresetEmotion('tense')} className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 transition-all font-mono text-[11px]">😬</button>
+                    <button onClick={() => applyPresetEmotion('smile')} className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all font-mono text-[11px]">😊</button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -882,7 +1045,7 @@ export const FairShowcase: React.FC = () => {
 
                 {/* Action Unit Facial Metrics */}
                 <div className="space-y-3 pt-2">
-                  <span className="text-xs font-mono text-white/40 uppercase">Action Unit (AU) Proxies</span>
+                  <span className="text-xs font-mono text-white/40 uppercase">Detected Action Unit (AU) Proxies</span>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
@@ -890,10 +1053,7 @@ export const FairShowcase: React.FC = () => {
                       <span className="font-mono text-white/90">{(browFurrow * 100).toFixed(0)}%</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                      <div
-                        className="h-full bg-white/60 rounded-full transition-all duration-300"
-                        style={{ width: `${browFurrow * 100}%` }}
-                      />
+                      <div className="h-full bg-white/60 rounded-full transition-all duration-300" style={{ width: `${browFurrow * 100}%` }} />
                     </div>
                   </div>
 
@@ -903,10 +1063,7 @@ export const FairShowcase: React.FC = () => {
                       <span className="font-mono text-white/90">{(eyeSquint * 100).toFixed(0)}%</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                      <div
-                        className="h-full bg-white/60 rounded-full transition-all duration-300"
-                        style={{ width: `${eyeSquint * 100}%` }}
-                      />
+                      <div className="h-full bg-white/60 rounded-full transition-all duration-300" style={{ width: `${eyeSquint * 100}%` }} />
                     </div>
                   </div>
 
@@ -916,31 +1073,39 @@ export const FairShowcase: React.FC = () => {
                       <span className="font-mono text-white/90">{(jawTension * 100).toFixed(0)}%</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                      <div
-                        className="h-full bg-white/60 rounded-full transition-all duration-300"
-                        style={{ width: `${jawTension * 100}%` }}
-                      />
+                      <div className="h-full bg-white/60 rounded-full transition-all duration-300" style={{ width: `${jawTension * 100}%` }} />
                     </div>
                   </div>
                 </div>
 
-                {/* Primary Action Button */}
-                <button
-                  onClick={startCoolDown}
-                  disabled={isCoolingDown}
-                  className="w-full py-4 rounded-2xl bg-white hover:bg-white/90 active:scale-[0.98] text-black font-semibold text-sm transition-all duration-200 shadow-xl shadow-white/10 flex items-center justify-center space-x-2 disabled:opacity-50"
-                >
-                  <Wind className="w-4 h-4" />
-                  <span>{isCoolingDown ? 'De-escalating in Progress...' : 'Start 12s Cool-Down Protocol'}</span>
-                </button>
+                {/* Instruction or Cool Down Button */}
+                {!cameraActive ? (
+                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center space-y-1">
+                    <ScanFace className="w-5 h-5 text-white/30 mx-auto" />
+                    <p className="text-xs text-white/40">Turn on the camera to start real-time face detection.</p>
+                    <p className="text-[11px] text-white/25">The cool-down activates automatically when tension is detected.</p>
+                  </div>
+                ) : coolDownStep === 'success' ? (
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center space-y-1">
+                    <p className="text-sm font-semibold text-emerald-300">✓ Cool-Down Complete!</p>
+                    <p className="text-[11px] text-emerald-300/60">Your certificate is ready below.</p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={startCoolDown}
+                    disabled={isCoolingDown}
+                    className="w-full py-4 rounded-2xl bg-white hover:bg-white/90 active:scale-[0.98] text-black font-semibold text-sm transition-all duration-200 shadow-xl shadow-white/10 flex items-center justify-center space-x-2 disabled:opacity-50"
+                  >
+                    <Wind className="w-4 h-4" />
+                    <span>{isCoolingDown ? 'De-escalating...' : 'Start 12s Cool-Down Protocol'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* ───────────────────────────────────────────────────────────── */}
-        {/* TAB 2: ANGRY MESSAGE DE-ESCALATOR */}
-        {/* ───────────────────────────────────────────────────────────── */}
+        {/* ── TAB 2: ANGRY MESSAGE DE-ESCALATOR ── */}
         {activeTab === 'text' && (
           <div className="max-w-3xl mx-auto space-y-6">
             <div className="rounded-3xl bg-white/[0.04] border border-white/[0.08] p-6 sm:p-8 space-y-6 shadow-2xl">
@@ -951,16 +1116,11 @@ export const FairShowcase: React.FC = () => {
                 <h3 className="text-xl font-semibold text-white mt-1">Simulate Impulsive Communication</h3>
               </div>
 
-              {/* Presets Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {MESSAGE_PRESETS.map((p) => (
                   <button
                     key={p.id}
-                    onClick={() => {
-                      setDraftText(p.prompt);
-                      setRewrites([]);
-                      setSelectedRewriteIndex(null);
-                    }}
+                    onClick={() => { setDraftText(p.prompt); setRewrites([]); setSelectedRewriteIndex(null); }}
                     className={`text-left p-3 rounded-2xl border text-xs transition-all ${
                       draftText === p.prompt
                         ? 'bg-rose-500/10 border-rose-500/30 text-rose-200'
@@ -973,7 +1133,6 @@ export const FairShowcase: React.FC = () => {
                 ))}
               </div>
 
-              {/* Input Area */}
               <div className="relative">
                 <textarea
                   rows={3}
@@ -993,31 +1152,23 @@ export const FairShowcase: React.FC = () => {
                 <span>Intervene &amp; Neutralize Toxicity</span>
               </button>
 
-              {/* Pause Warning & Rewrites */}
               {rewrites.length > 0 && (
                 <div className="space-y-4 pt-4 border-t border-white/[0.06] animate-fade-in">
                   <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
                       <div>
-                        <div className="text-xs font-semibold text-rose-300">
-                          High Toxicity Intercepted (94% Hostility)
-                        </div>
+                        <div className="text-xs font-semibold text-rose-300">High Toxicity Intercepted (94% Hostility)</div>
                         <div className="text-[11px] text-rose-300/70">
-                          {pauseRunning
-                            ? `Cooling Pause Active: Breathe for ${pauseTimer}s before acting.`
-                            : 'Cooling Pause Finished. Choose an emotionally intelligent rewrite below:'}
+                          {pauseRunning ? `Cooling Pause Active: Breathe for ${pauseTimer}s before acting.` : 'Cooling Pause Finished. Choose a rewrite below:'}
                         </div>
                       </div>
                     </div>
                     {pauseRunning && (
-                      <span className="font-mono text-sm font-bold text-rose-300 bg-rose-500/20 px-2.5 py-1 rounded-xl">
-                        {pauseTimer}s
-                      </span>
+                      <span className="font-mono text-sm font-bold text-rose-300 bg-rose-500/20 px-2.5 py-1 rounded-xl">{pauseTimer}s</span>
                     )}
                   </div>
 
-                  {/* 3 Rewrite Options */}
                   <div className="space-y-3">
                     <span className="text-xs font-mono text-white/40 uppercase">AI Neutralization Options</span>
                     {rewrites.map((rw, idx) => (
@@ -1033,15 +1184,9 @@ export const FairShowcase: React.FC = () => {
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-xs font-semibold text-white">{rw.title}</span>
                           {selectedRewriteIndex === idx ? (
-                            <span className="flex items-center space-x-1 text-emerald-400 text-xs font-mono">
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Selected</span>
-                            </span>
+                            <span className="flex items-center space-x-1 text-emerald-400 text-xs font-mono"><Check className="w-3.5 h-3.5" /><span>Selected</span></span>
                           ) : (
-                            <span className="text-xs text-white/40 hover:text-white flex items-center space-x-1">
-                              <span>Select</span>
-                              <ChevronRight className="w-3 h-3" />
-                            </span>
+                            <span className="text-xs text-white/40 hover:text-white flex items-center space-x-1"><span>Select</span><ChevronRight className="w-3 h-3" /></span>
                           )}
                         </div>
                         <p className="text-xs leading-relaxed text-white/90">{rw.text}</p>
@@ -1055,54 +1200,32 @@ export const FairShowcase: React.FC = () => {
           </div>
         )}
 
-        {/* ───────────────────────────────────────────────────────────── */}
-        {/* SHAREABLE CERTIFICATE & QR CODE CARD (For Fair & Feed) */}
-        {/* ───────────────────────────────────────────────────────────── */}
+        {/* ── SHAREABLE CERTIFICATE & QR CODE CARD ── */}
         {reportData && (
           <div className="max-w-2xl mx-auto space-y-6 pt-6 animate-fade-in">
             <div className="text-center space-y-1">
-              <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest">
-                Official Fair Outcome
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                Your De-escalation Certificate
-              </h2>
-              <p className="text-xs text-white/50">
-                Scan the QR code with your phone camera to open or post in the feed.
-              </p>
+              <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest">Official Fair Outcome</span>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Your De-escalation Certificate</h2>
+              <p className="text-xs text-white/50">Scan the QR code with your phone camera to open or post in the feed.</p>
             </div>
 
-            {/* Visual Certificate Card */}
             <div className="rounded-3xl bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/[0.12] p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden backdrop-blur-xl">
-              {/* Corner Badge */}
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
                 <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-400 text-black flex items-center justify-center font-bold text-[10px]">
-                    HL
-                  </div>
-                  <span className="text-xs font-mono text-emerald-400 font-semibold tracking-wider">
-                    HUMANLENS AI • VERIFIED SESSION
-                  </span>
+                  <div className="w-6 h-6 rounded-lg bg-emerald-400 text-black flex items-center justify-center font-bold text-[10px]">HL</div>
+                  <span className="text-xs font-mono text-emerald-400 font-semibold tracking-wider">HUMANLENS AI • VERIFIED SESSION</span>
                 </div>
                 <span className="text-xs font-mono text-white/40">{reportData.id}</span>
               </div>
 
-              {/* Big Metric Callout */}
               <div className="flex flex-col sm:flex-row items-baseline sm:items-center justify-between gap-4">
                 <div>
-                  <div className="text-5xl sm:text-6xl font-extrabold text-white tracking-tight">
-                    -{reportData.neutralizedPercent}%
-                  </div>
-                  <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wide mt-1">
-                    Neural Friction &amp; Toxicity Neutralized
-                  </div>
+                  <div className="text-5xl sm:text-6xl font-extrabold text-white tracking-tight">-{reportData.neutralizedPercent}%</div>
+                  <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wide mt-1">Neural Friction &amp; Toxicity Neutralized</div>
                 </div>
-                <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-mono">
-                  ✓ Calmed in Real Time
-                </div>
+                <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-mono">✓ Calmed in Real Time</div>
               </div>
 
-              {/* Comparison Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-black/40 border border-white/[0.06]">
                 <div className="space-y-1">
                   <span className="text-[11px] font-mono text-rose-400 uppercase">🔥 Initial Peak State</span>
@@ -1116,16 +1239,13 @@ export const FairShowcase: React.FC = () => {
                 </div>
               </div>
 
-              {/* Text Snippet if available */}
               {reportData.rewrittenText && (
                 <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white/80 italic">
-                  "{reportData.rewrittenText}"
+                  &quot;{reportData.rewrittenText}&quot;
                 </div>
               )}
 
-              {/* QR Code and Sharing Actions */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-2 border-t border-white/[0.08]">
-                {/* QR Code Box */}
                 {qrCodeUrl && (
                   <div className="flex items-center space-x-4">
                     <div className="p-2 bg-white rounded-2xl shadow-lg shrink-0">
@@ -1133,14 +1253,11 @@ export const FairShowcase: React.FC = () => {
                     </div>
                     <div className="space-y-1 text-left">
                       <div className="text-xs font-semibold text-white">Scan with Camera</div>
-                      <div className="text-[11px] text-white/50 leading-relaxed max-w-[180px]">
-                        Opens this exact report on your phone to share or save.
-                      </div>
+                      <div className="text-[11px] text-white/50 leading-relaxed max-w-[180px]">Opens this report on your phone to share or save.</div>
                     </div>
                   </div>
                 )}
 
-                {/* Download and Share Buttons */}
                 <div className="flex flex-col w-full sm:w-auto space-y-2">
                   <button
                     onClick={downloadReportCard}
@@ -1150,7 +1267,6 @@ export const FairShowcase: React.FC = () => {
                     <Download className="w-3.5 h-3.5" />
                     <span>{isExporting ? 'Generating...' : 'Download Report (PNG)'}</span>
                   </button>
-
                   <button
                     onClick={handleCopyLink}
                     className="flex items-center justify-center space-x-2 px-5 py-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.12] text-white text-xs font-medium transition-all"
