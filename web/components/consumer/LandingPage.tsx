@@ -52,6 +52,13 @@ export const LandingPage: React.FC = () => {
 
         <div className="flex items-center space-x-3">
           <Link
+            href="/fair"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-400 hover:bg-emerald-500/15 text-[12px] font-medium transition-all"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>🎪 Live Fair Kiosk</span>
+          </Link>
+          <Link
             href="/login"
             className="text-[13px] text-white/50 hover:text-white transition-colors font-medium"
           >
@@ -93,15 +100,21 @@ export const LandingPage: React.FC = () => {
           style={{ animationDelay: '200ms' }}
         >
           <Link
-            href="/signup"
+            href="/fair"
             className="flex items-center space-x-2 px-6 py-3.5 rounded-full bg-white text-black text-[14px] font-semibold hover:bg-white/90 transition-all active:scale-95 shadow-xl shadow-white/10"
           >
-            <span>Start for free</span>
+            <span>🎪 Try Live Fair Demo</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
-            href="/login"
+            href="/signup"
             className="flex items-center space-x-2 px-6 py-3.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-white text-[14px] font-medium hover:bg-white/[0.08] transition-all"
+          >
+            <span>Start for free</span>
+          </Link>
+          <Link
+            href="/login"
+            className="text-[13px] text-white/40 hover:text-white px-2 py-2 transition-colors"
           >
             <span>Sign in</span>
           </Link>
