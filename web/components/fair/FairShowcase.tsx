@@ -339,6 +339,10 @@ export const FairShowcase: React.FC = () => {
       if (faceDetectionRef.current) cancelAnimationFrame(faceDetectionRef.current);
       if (videoStreamRef.current) {
         videoStreamRef.current.getTracks().forEach((t) => t.stop());
+        videoStreamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
       setCameraActive(false);
       setFaceDetected(false);
@@ -353,19 +357,24 @@ export const FairShowcase: React.FC = () => {
           video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
         });
         videoStreamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadeddata = () => {
-            // Start face detection loop once video is ready
-            runFaceDetection();
-          };
-        }
         setCameraActive(true);
       } catch (err) {
         console.warn('Camera permission denied or unavailable:', err);
       }
     }
   };
+
+  // Attach stream to video element AFTER React renders it into the DOM
+  useEffect(() => {
+    if (cameraActive && videoRef.current && videoStreamRef.current) {
+      const video = videoRef.current;
+      video.srcObject = videoStreamRef.current;
+      video.onloadeddata = () => {
+        video.play().catch(() => {});
+        runFaceDetection();
+      };
+    }
+  }, [cameraActive, runFaceDetection]);
 
   // Cleanup on unmount
   useEffect(() => {
