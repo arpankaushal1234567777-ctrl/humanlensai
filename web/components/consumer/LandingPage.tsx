@@ -69,12 +69,6 @@ export const LandingPage: React.FC = () => {
 
       {/* ── Hero ── */}
       <section className="relative z-10 flex flex-col items-center text-center px-6 pt-16 pb-20 max-w-3xl mx-auto">
-        {/* Badge */}
-        <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full border border-white/[0.1] bg-white/[0.05] text-[12px] text-white/50 font-mono mb-8 animate-fade-in">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Real-time AI · Runs locally · No data stored</span>
-        </div>
-
         {/* Headline */}
         <h1
           className="text-5xl sm:text-6xl md:text-7xl font-semibold tracking-tight leading-[1.05] mb-6 animate-fade-in"
