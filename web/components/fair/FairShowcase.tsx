@@ -202,6 +202,8 @@ export const FairShowcase: React.FC = () => {
   const [breathPhase, setBreathPhase] = useState<'Inhale slowly...' | 'Hold gently...' | 'Exhale and soften jaw...'>('Inhale slowly...');
   const [coolDownSeconds, setCoolDownSeconds] = useState(12);
   const [peakRecordedScore, setPeakRecordedScore] = useState(15);
+  const autoTriggeredRef = useRef(false);
+  const highTensionStartTimeRef = useRef<number | null>(null);
 
   const isPresenterMode = searchParams.get('presenter') === 'true';
 
@@ -426,6 +428,11 @@ export const FairShowcase: React.FC = () => {
     if (type === 'rage') {
       setTensionScore(89); setBrowFurrow(0.92); setEyeSquint(0.78); setJawTension(0.85);
       setPeakRecordedScore((p) => Math.max(p, 89));
+      // Automatically trigger cool down on high agitation
+      setTimeout(() => {
+        autoTriggeredRef.current = true;
+        startCoolDown();
+      }, 300);
     } else if (type === 'tense') {
       setTensionScore(64); setBrowFurrow(0.65); setEyeSquint(0.52); setJawTension(0.60);
       setPeakRecordedScore((p) => Math.max(p, 64));
@@ -443,6 +450,37 @@ export const FairShowcase: React.FC = () => {
     setCoolDownSeconds(12);
     setPeakRecordedScore((p) => Math.max(p, tensionScore));
     playCalmChime(432, 2.5);
+  };
+
+  // ── Automatic De-escalation on High Agitation ──
+  useEffect(() => {
+    if (!cameraActive || isCoolingDown || coolDownStep === 'breathing' || autoTriggeredRef.current) {
+      highTensionStartTimeRef.current = null;
+      return;
+    }
+
+    if (tensionScore >= 65) {
+      const now = Date.now();
+      if (!highTensionStartTimeRef.current) {
+        highTensionStartTimeRef.current = now;
+      } else if (now - highTensionStartTimeRef.current >= 800) {
+        // High agitation sustained for 800ms -> Automatically engage cool down!
+        autoTriggeredRef.current = true;
+        startCoolDown();
+      }
+    } else {
+      highTensionStartTimeRef.current = null;
+    }
+  }, [tensionScore, cameraActive, isCoolingDown, coolDownStep]);
+
+  const handleResetSession = () => {
+    autoTriggeredRef.current = false;
+    highTensionStartTimeRef.current = null;
+    setCoolDownStep('idle');
+    setIsCoolingDown(false);
+    setTensionScore(15);
+    setReportData(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Cool Down Timer Loop
@@ -489,6 +527,14 @@ export const FairShowcase: React.FC = () => {
 
       const shareUrl = `${window.location.origin}/fair?id=${id}&peak=${peak}&zen=${calm}&mode=mirror`;
       generateQr(shareUrl);
+
+      // Automatically scroll to the generated certificate so it's instantly visible!
+      setTimeout(() => {
+        const certEl = document.getElementById('deescalation-certificate');
+        if (certEl) {
+          certEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 400);
     }
 
     return () => { if (interval) clearInterval(interval); };
@@ -1005,6 +1051,17 @@ export const FairShowcase: React.FC = () => {
                   </div>
                 )}
 
+                {/* High Agitation Auto-Trigger Warning Banner */}
+                {cameraActive && tensionScore >= 65 && !isCoolingDown && (
+                  <div className="absolute bottom-4 left-4 right-4 p-3 rounded-2xl bg-rose-500/90 text-white text-xs font-semibold backdrop-blur-md flex items-center justify-between shadow-lg shadow-rose-500/30 animate-pulse z-10">
+                    <span className="flex items-center space-x-2">
+                      <Flame className="w-4 h-4 text-white" />
+                      <span>High Agitation ({tensionScore}%) — Auto-Engaging De-escalation</span>
+                    </span>
+                    <span className="font-mono bg-white/20 px-2.5 py-1 rounded-xl text-[11px]">Auto</span>
+                  </div>
+                )}
+
                 {/* Breathing Overlay */}
                 {isCoolingDown && (
                   <div className="absolute inset-0 bg-black/75 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fade-in z-20">
@@ -1275,7 +1332,7 @@ export const FairShowcase: React.FC = () => {
 
         {/* Certificate Card & QR Code at bottom of booth screen */}
         {reportData && (
-          <div className="max-w-2xl mx-auto space-y-6 pt-6 animate-fade-in">
+          <div id="deescalation-certificate" className="max-w-2xl mx-auto space-y-6 pt-6 animate-fade-in scroll-mt-12">
             <div className="text-center space-y-1">
               <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest">Official Fair Outcome</span>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Your De-escalation Certificate</h2>
@@ -1349,6 +1406,13 @@ export const FairShowcase: React.FC = () => {
                   >
                     {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
                     <span>{copiedLink ? 'Link Copied!' : 'Share to Feed / Copy'}</span>
+                  </button>
+                  <button
+                    onClick={handleResetSession}
+                    className="flex items-center justify-center space-x-1.5 px-5 py-2 rounded-full border border-white/[0.1] hover:bg-white/[0.06] text-white/50 hover:text-white text-xs transition-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Test Next Person</span>
                   </button>
                 </div>
               </div>
